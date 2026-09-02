@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: rakhiinternet-backend
+    runtime: node
+    plan: free
+    rootDir: .
+    buildCommand: npm install && npm run build:backend
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+    healthCheckPath: /api/ai-status
