@@ -1368,7 +1368,7 @@ If no person is detected, return default values (x: 50, y: 55, scale: 1.0, stret
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
+  } else if (process.env.SERVE_FRONTEND === "true") {
     let staticPath = path.join(process.cwd(), 'dist');
     if (!fs.existsSync(staticPath) || !fs.existsSync(path.join(staticPath, 'index.html'))) {
       staticPath = path.join(process.cwd(), 'build');
