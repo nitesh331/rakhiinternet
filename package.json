@@ -7,8 +7,8 @@
     "dev": "tsx server.ts",
     "build": "npm run build:frontend && npm run build:backend",
     "build:frontend": "vite build",
-    "build:backend": "esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
-    "start": "node dist/server.cjs",
+    "build:backend": "esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=server.cjs",
+    "start": "node server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
@@ -22,6 +22,7 @@
     "@vitejs/plugin-react": "^5.0.4",
     "autoprefixer": "^10.5.2",
     "cloudinary": "^2.10.0",
+    "cors": "^2.8.5",
     "cryptpdf": "^0.1.1",
     "dotenv": "^17.2.3",
     "esbuild": "^0.28.1",
