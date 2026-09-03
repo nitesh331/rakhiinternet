@@ -12,6 +12,33 @@ import remarkGfm from 'remark-gfm';
 // @ts-ignore
 import aiBotImage from '../assets/images/regenerated_image_1783931513099.png';
 
+async function retryFetch(url: string, options: RequestInit = {}, retries = 3, timeoutMs = 120000): Promise<Response> {
+  let lastResponse: Response | null = null;
+  for (let attempt = 0; attempt < retries; attempt++) {
+    // Add a timeout to the fetch (Render free plan can take time to wake up)
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timer);
+      // If server is waking up (503/502/504), wait a bit and retry
+      if (res.status === 503 || res.status === 502 || res.status === 504) {
+        lastResponse = res;
+        await new Promise(r => setTimeout(r, 3000 + attempt * 2000));
+        continue;
+      }
+      return res;
+    } catch (err: any) {
+      clearTimeout(timer);
+      lastResponse = null;
+      // Network error - retry after delay (backend waking up)
+      await new Promise(r => setTimeout(r, 3000 + attempt * 2000));
+    }
+  }
+  if (lastResponse) return lastResponse;
+  throw new Error('Network request failed after retries');
+}
+
 interface ChatImage {
   data: string;
   mimeType: string;
@@ -111,7 +138,7 @@ export default function ChatPortal({ onBack }: { onBack: () => void }) {
 
   
   useEffect(() => {
-    fetch('/api/ai-status')
+    retryFetch('/api/ai-status')
       .then(res => res.json())
       .then(data => {
         setAiStatus(data);
@@ -399,7 +426,7 @@ export default function ChatPortal({ onBack }: { onBack: () => void }) {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/chat-stream', {
+      const response = await retryFetch('/api/chat-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -495,7 +522,7 @@ export default function ChatPortal({ onBack }: { onBack: () => void }) {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/chat-stream', {
+      const response = await retryFetch('/api/chat-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
