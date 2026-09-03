@@ -3,7 +3,6 @@ import express from "express";
 import http from "http";
 import cors from "cors";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI, Type } from "@google/genai";
 import Groq from "groq-sdk";
 import { encryptPDF, decryptPDF } from "cryptpdf";
 import Parser from "rss-parser";
@@ -230,9 +229,9 @@ async function startServer() {
       const cleanSnippet = (str: string = "") => {
         return str
           .replace(/<[^>]+>/g, "")
-          .replace(/&amp;/g, "&")
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'")
+          .replace(/&/g, "&")
+          .replace(/"/g, '"')
+          .replace(/'/g, "'")
           .replace(/&nbsp;/g, " ")
           .trim();
       };
@@ -297,57 +296,6 @@ async function startServer() {
       res.status(500).json({ error: "Failed to fetch latest updates" });
     }
   });
-
-  // Helper to clean API Key by stripping any serial numbers (e.g. 1., 2., [1], etc.)
-  function cleanApiKey(key: string): string {
-    let cleaned = key.trim();
-    // Strip surrounding quotes if any
-    cleaned = cleaned.replace(/^['"]|['"]$/g, '');
-    
-    // If it contains a standard Gemini key starting with AIzaSy, extract it directly
-    const aizaMatch = cleaned.match(/(AIzaSy[A-Za-z0-9_-]+)/);
-    if (aizaMatch) {
-      return aizaMatch[1];
-    }
-    
-    // If it contains an AQ. key, extract it directly
-    const aqMatch = cleaned.match(/(AQ\.[A-Za-z0-9_-]+)/);
-    if (aqMatch) {
-      return aqMatch[1];
-    }
-
-    // Otherwise, strip leading serial numbers/symbols (e.g. "1.", "1)", "[1]", "1-")
-    cleaned = cleaned.replace(/^(?:\d+[\.\-\s\)]+|\[\d+\]|\(\d+\))\s*/, '');
-    return cleaned.trim();
-  }
-
-  // Helper to get all API keys (supports comma-separated list of multiple keys, or GEMINI_API_KEY_1, GEMINI_API_KEY_2 etc. in .env)
-  function getApiKeys(): string[] {
-    const keys: string[] = [];
-
-    // 1. Try GEMINI_API_KEY (supports splitting by commas, newlines, or semicolons)
-    const rawKey = process.env.GEMINI_API_KEY || "";
-    if (rawKey) {
-      const splitKeys = rawKey.split(/[,\n;]+/).map(k => cleanApiKey(k)).filter(Boolean);
-      // Accept genuine AIzaSy keys or non-AQ keys
-      keys.push(...splitKeys.filter(k => k.startsWith('AIzaSy') || (!k.startsWith('AQ.') && k.length > 20)));
-    }
-
-    // 2. Try GEMINI_API_KEY_1 to GEMINI_API_KEY_50
-    for (let i = 1; i <= 50; i++) {
-      const numberedKey = process.env[`GEMINI_API_KEY_${i}`];
-      if (numberedKey) {
-        const cleaned = cleanApiKey(numberedKey);
-        if (cleaned && (cleaned.startsWith('AIzaSy') || (!cleaned.startsWith('AQ.') && cleaned.length > 20))) {
-          keys.push(cleaned);
-        }
-      }
-    }
-
-    // Filter duplicates and return
-    return [...new Set(keys)];
-  }
-
 
   // Helper to clean Groq API Key (supports gsk_ keys)
   function cleanGroqApiKey(key: string): string {
@@ -431,8 +379,8 @@ async function startServer() {
           });
           let reply = completion.choices[0]?.message?.content || "";
           // Strip reasoning tags if model output think block
-          if (reply.includes("</think>")) {
-            reply = reply.split("</think>").pop()?.trim() || reply;
+          if (reply.includes("think")) {
+            reply = reply.split("think").pop()?.trim() || reply;
           }
           if (reply) {
             return reply;
@@ -486,283 +434,6 @@ async function startServer() {
     throw lastError || new Error("Failed to start Groq stream");
   }
 
-  // Helper to clean and sanitize multi-turn chat contents to be fully compliant with Gemini requirements
-  function sanitizeChatContents(contents: any): any {
-    if (!Array.isArray(contents)) return contents;
-    
-    // 1. Filter out empty or invalid parts
-    let sanitized = contents.map(item => {
-      if (!item || !item.parts) return null;
-      // Filter out any empty parts
-      const cleanParts = item.parts.filter((p: any) => p.text || p.inlineData);
-      if (cleanParts.length === 0) return null;
-      return {
-        role: item.role === "model" ? "model" : "user",
-        parts: cleanParts
-      };
-    }).filter(Boolean) as any[];
-
-    // 2. Ensure it starts with a user message
-    while (sanitized.length > 0 && sanitized[0].role !== "user") {
-      sanitized.shift();
-    }
-
-    if (sanitized.length === 0) {
-      return [{ role: "user", parts: [{ text: "Hello" }] }];
-    }
-
-    // 3. Alternate strictly between user and model.
-    // If consecutive roles are identical, merge their parts.
-    const alternated: any[] = [];
-    for (const msg of sanitized) {
-      if (alternated.length === 0) {
-        alternated.push(msg);
-      } else {
-        const lastMsg = alternated[alternated.length - 1];
-        if (lastMsg.role === msg.role) {
-          lastMsg.parts.push(...msg.parts);
-        } else {
-          alternated.push(msg);
-        }
-      }
-    }
-
-    return alternated;
-  }
-
-  // Helper to call Gemini with API Key & Model Fallbacks
-  async function callGeminiWithFallback(model, contents, config = {}) {
-    const uniqueKeys = getApiKeys();
-    const sanitizedContents = sanitizeChatContents(contents);
-    let lastError = null;
-
-    // Build list of models to try (trying requested model first, then falling back to alternative/older equivalents)
-    const modelsToTry = [
-      model,
-      model.includes('pro') ? 'gemini-1.5-pro' : 'gemini-1.5-flash',
-      'gemini-1.5-flash',
-      'gemini-2.5-flash'
-    ];
-    const uniqueModels = [...new Set(modelsToTry)];
-
-    for (const currentModel of uniqueModels) {
-      for (let i = 0; i < uniqueKeys.length; i++) {
-        const currentKey = uniqueKeys[i];
-        try {
-          const ai = new GoogleGenAI({
-            apiKey: currentKey,
-            httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-          });
-          
-          const response = await ai.models.generateContent({
-            model: currentModel,
-            contents: sanitizedContents,
-            config: config
-          });
-          
-          return response;
-        } catch (error) {
-          console.log(`[Backup Route Info] model ${currentModel} with key index ${i + 1} response status checked. Attempting fallback...`);
-          lastError = error;
-        }
-      }
-    }
-    throw lastError;
-  }
-
-
-  async function callGeminiStreamWithFallback(model, contents, config = {}) {
-    const uniqueKeys = getApiKeys();
-    const sanitizedContents = sanitizeChatContents(contents);
-    let lastError = null;
-
-    // Build list of models to try
-    const modelsToTry = [
-      model,
-      model.includes('pro') ? 'gemini-1.5-pro' : 'gemini-1.5-flash',
-      'gemini-1.5-flash',
-      'gemini-2.5-flash'
-    ];
-    const uniqueModels = [...new Set(modelsToTry)];
-
-    for (const currentModel of uniqueModels) {
-      for (let i = 0; i < uniqueKeys.length; i++) {
-        const currentKey = uniqueKeys[i];
-        try {
-          const ai = new GoogleGenAI({
-            apiKey: currentKey,
-            httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-          });
-          
-          const responseStream = await ai.models.generateContentStream({
-            model: currentModel,
-            contents: sanitizedContents,
-            config: config
-          });
-          
-          // Verify that the stream actually works and the key/model combo is valid by testing the first chunk.
-          const iterator = responseStream[Symbol.asyncIterator]();
-          const firstResult = await iterator.next();
-          
-          if (!firstResult.done) {
-            async function* combinedGenerator() {
-              yield firstResult.value;
-              let nextResult = await iterator.next();
-              while (!nextResult.done) {
-                yield nextResult.value;
-                nextResult = await iterator.next();
-              }
-            }
-            return combinedGenerator();
-          } else {
-            return responseStream;
-          }
-        } catch (error) {
-          console.log(`[Backup Route Info] stream model ${currentModel} with key index ${i + 1} response status checked. Attempting fallback...`);
-          lastError = error;
-        }
-      }
-    }
-    throw lastError;
-  }
-
-  async function callGeminiImageWithFallback(contents, config: any = {}) {
-    const models = [
-      'imagen-3.0-generate-002',
-      'gemini-2.0-flash-exp-image-generation',
-      'gemini-2.0-flash-preview-image-generation'
-    ];
-    
-    const uniqueKeys = getApiKeys();
-    let lastError = null;
-    
-    // Extract text prompt from contents if we need it for imagen
-    let textPrompt = "A highly detailed, professional digital illustration.";
-    if (contents && contents.parts) {
-      const textPart = contents.parts.find((p: any) => p.text);
-      if (textPart) {
-        textPrompt = textPart.text;
-      }
-    } else if (typeof contents === 'string') {
-      textPrompt = contents;
-    }
-    
-    for (const model of models) {
-      for (let i = 0; i < uniqueKeys.length; i++) {
-        const currentKey = uniqueKeys[i];
-        try {
-          const ai = new GoogleGenAI({
-            apiKey: currentKey,
-            httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-          });
-          
-          if (model.startsWith('imagen-')) {
-            const response = await ai.models.generateImages({
-              model: model,
-              prompt: textPrompt,
-              config: {
-                numberOfImages: 1,
-                outputMimeType: 'image/png',
-                aspectRatio: config?.imageConfig?.aspectRatio || '1:1'
-              }
-            });
-            const base64Data = response.generatedImages?.[0]?.image?.imageBytes;
-            if (base64Data) {
-              return base64Data;
-            }
-          } else {
-            const response = await ai.models.generateContent({
-              model: model,
-              contents: contents,
-              config: config
-            });
-            
-            for (const part of response.candidates?.[0]?.content?.parts || []) {
-              if (part.inlineData?.data) {
-                return part.inlineData.data;
-              }
-            }
-          }
-        } catch (error) {
-          console.log(`[Image Model Info] ${model} with key index ${i + 1} failed, trying next...`);
-          lastError = error;
-        }
-      }
-    }
-    throw lastError || new Error("Failed to generate image using any image model.");
-  }
-
-  app.post("/api/pdf-ocr", async (req, res) => {
-    try {
-      const { pdfBase64 } = req.body;
-      const prompt = `Extract all text from this document accurately. Do not summarize.`;
-      const response = await callGeminiWithFallback("gemini-2.0-flash", [
-        { role: "user", parts: [{ inlineData: { data: pdfBase64, mimeType: "application/pdf" } }, { text: prompt }] }
-      ]);
-      res.json({ text: response.text });
-    } catch (error) {
-      res.status(500).json({ error: error?.message || "Failed to OCR." });
-    }
-  });
-
-  app.post("/api/pdf-summarize", async (req, res) => {
-    try {
-      const { pdfBase64 } = req.body;
-      const prompt = `Summarize this document clearly and concisely.`;
-      const response = await callGeminiWithFallback("gemini-2.0-flash", [
-        { role: "user", parts: [{ inlineData: { data: pdfBase64, mimeType: "application/pdf" } }, { text: prompt }] }
-      ]);
-      res.json({ summary: response.text });
-    } catch (error) {
-      res.status(500).json({ error: error?.message || "Failed to summarize." });
-    }
-  });
-
-  app.post("/api/pdf-translate", async (req, res) => {
-    try {
-      const { pdfBase64, targetLanguage } = req.body;
-      const prompt = `Translate this document to ${targetLanguage}. Maintain formatting.`;
-      const response = await callGeminiWithFallback("gemini-2.0-flash", [
-        { role: "user", parts: [{ inlineData: { data: pdfBase64, mimeType: "application/pdf" } }, { text: prompt }] }
-      ]);
-      res.json({ translation: response.text });
-    } catch (error) {
-      res.status(500).json({ error: error?.message || "Failed to translate." });
-    }
-  });
-
-  app.post("/api/pdf-to-word", async (req, res) => {
-    try {
-      const { pdfBase64 } = req.body;
-      const prompt = `Convert this PDF to a Word document outline. Use markdown formatting.`;
-      const response = await callGeminiWithFallback("gemini-2.0-flash", [
-        { role: "user", parts: [{ inlineData: { data: pdfBase64, mimeType: "application/pdf" } }, { text: prompt }] }
-      ]);
-      res.json({ text: response.text });
-    } catch (error) {
-      res.status(500).json({ error: error?.message || "Failed to convert." });
-    }
-  });
-
-  app.post("/api/pdf-to-excel", async (req, res) => {
-    try {
-      const { pdfBase64 } = req.body;
-      const prompt = `Extract all tables from this PDF to CSV format. Reply only with CSV data.`;
-      const response = await callGeminiWithFallback("gemini-2.0-flash", [
-        { role: "user", parts: [{ inlineData: { data: pdfBase64, mimeType: "application/pdf" } }, { text: prompt }] }
-      ]);
-      let csvText = response.text || "";
-      if (csvText.includes("\`\`\`csv")) {
-        csvText = csvText.split("\`\`\`csv")[1].split("\`\`\`")[0];
-      } else if (csvText.includes("\`\`\`")) {
-        csvText = csvText.split("\`\`\`")[1].split("\`\`\`")[0];
-      }
-      res.json({ csv: csvText.trim() });
-    } catch (error) {
-      res.status(500).json({ error: error?.message || "Failed to convert." });
-    }
-  });
-
   app.post("/api/pdf-protect", async (req, res) => {
     try {
       const { pdfBase64, password } = req.body;
@@ -802,16 +473,36 @@ async function startServer() {
     });
   });
 
+  app.get("/health", (req, res) => {
+    res.status(200).json({ 
+      status: "ok", 
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || "development"
+    });
+  });
+
+  app.get("/api/health", (req, res) => {
+    res.status(200).json({ 
+      status: "ok", 
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || "development"
+    });
+  });
+
   app.post("/api/chat", async (req, res) => {
     try {
       const { message, history, model, image } = req.body;
       
-const systemInstruction = `You are a helpful AI assistant. You can answer questions on any topic except illegal activities, harmful content, or anything that promotes violence, hate speech, or criminal behavior. If asked about illegal topics, politely refuse and offer to help with something else. Be concise and direct.`;
+      const systemInstruction = `You are a helpful AI assistant. You can answer questions on any topic except illegal activities, harmful content, or anything that promotes violence, hate speech, or criminal behavior. If asked about illegal topics, politely refuse and offer to help with something else. Be concise and direct.`;
 
       const groqKeys = getGroqApiKeys();
-      const geminiKeys = getApiKeys();
-      const isExplicitGemini = Boolean(model && (model.startsWith('gemini')));
-      const isGroqCandidate = !image && groqKeys.length > 0;
+
+      // Handle image input - Groq doesn't support images
+      if (image) {
+        return res.status(400).json({ error: "Image analysis is not available with Groq models. Please use text-only messages or remove the image." });
+      }
 
       // Build Groq messages
       const getGroqMessages = () => {
@@ -835,70 +526,13 @@ const systemInstruction = `You are a helpful AI assistant. You can answer questi
         return msgs;
       };
 
-      // 1. Try Groq first if it is a Groq model or if Gemini is not explicitly requested or if Gemini has no valid keys
-      if (isGroqCandidate && (!isExplicitGemini || geminiKeys.length === 0)) {
-        try {
-          const reply = await callGroqWithFallback(model || "openai/gpt-oss-120b", getGroqMessages());
-          return res.json({ reply, provider: "groq" });
-        } catch (groqError) {
-          console.warn("[Groq Chat] Falling back to Gemini:", groqError?.message || groqError);
-        }
-      }
-
-      // 2. Try Gemini
-      if (geminiKeys.length > 0) {
-        try {
-          const geminiContents: any[] = [];
-          if (history && history.length > 0) {
-            for (const msg of history) {
-              if (!msg.text && !msg.image) continue;
-              const parts: any[] = [];
-              if (msg.image) {
-                parts.push({ inlineData: { data: msg.image.data, mimeType: msg.image.mimeType } });
-              }
-              if (msg.text) {
-                parts.push({ text: msg.text });
-              }
-              geminiContents.push({
-                role: msg.role === "user" ? "user" : "model",
-                parts: parts
-              });
-            }
-          }
-          const lastMsg = geminiContents[geminiContents.length - 1];
-          const hasLastUserMsg = lastMsg && lastMsg.role === "user" && 
-            (lastMsg.parts.some((p: any) => p.text === message) || (!message && image));
-          if (!hasLastUserMsg) {
-            const parts: any[] = [];
-            if (image) {
-              parts.push({ inlineData: { data: image.data, mimeType: image.mimeType } });
-            }
-            if (message) {
-              parts.push({ text: message });
-            } else if (image) {
-              parts.push({ text: "Please analyze this image." });
-            }
-            geminiContents.push({ role: "user", parts });
-          }
-
-          const selectedModel = model === 'gemini-3.1-pro-preview' ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
-          const response = await callGeminiWithFallback(selectedModel, geminiContents, {
-            systemInstruction: systemInstruction,
-            tools: [{ googleSearch: {} }]
-          });
-          return res.json({ reply: response.text, provider: "gemini" });
-        } catch (geminiError) {
-          console.warn("[Gemini Chat] Failed, trying Groq fallback:", geminiError?.message || geminiError);
-        }
-      }
-
-      // 3. Fallback to Groq if not tried yet or as second attempt
-      if (isGroqCandidate) {
+      try {
         const reply = await callGroqWithFallback(model || "openai/gpt-oss-120b", getGroqMessages());
         return res.json({ reply, provider: "groq" });
+      } catch (groqError) {
+        console.error("[Groq Chat] Error:", groqError?.message || groqError);
+        throw groqError;
       }
-
-      throw new Error("No available AI provider configured with valid credentials.");
     } catch (error: any) {
       console.error("API Chat Error:", error);
       res.status(500).json({ error: error?.message || "Failed to generate response." });
@@ -916,52 +550,29 @@ const systemInstruction = `You are a helpful AI assistant. You can answer questi
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
 
-      const labelText = image 
-        ? "Editing your image using Imagen AI..." 
-        : "Generating your image using Imagen AI...";
-      
-      res.write(`data: ${JSON.stringify({ text: `🎨 ${labelText}\n\nPlease hold on a moment...` })}\n\n`);
-
-      try {
-        const contents: any = { parts: [] };
-        if (image) {
-          contents.parts.push({ inlineData: { data: image.data, mimeType: image.mimeType } });
-        }
-        contents.parts.push({ text: message || "Create a highly detailed, professional digital illustration." });
-
-        const imageBase64 = await callGeminiImageWithFallback(contents, {
-          imageConfig: { aspectRatio: "1:1", imageSize: "1K" }
-        });
-
-        res.write(`data: ${JSON.stringify({ 
-          text: `Successfully created image based on prompt: "${message || "digital illustration"}"`, 
-          generatedImage: `data:image/png;base64,${imageBase64}` 
-        })}\n\n`);
-        res.write('data: [DONE]\n\n');
-        res.end();
-        return;
-      } catch (err: any) {
-        console.error("Image generation error:", err);
-        const errString = String(err.message || err);
-        let friendlyMessage = `⚠️ **Image generation notice**: Image generation requires Gemini Imagen API credentials. `;
-        if (errString.includes("quota") || errString.includes("429") || errString.includes("RESOURCE_EXHAUSTED")) {
-          friendlyMessage += "Rate limit reached. Please try again in a few moments.";
-        } else {
-          friendlyMessage += "Please verify your Gemini API Key in settings.";
-        }
-        res.write(`data: ${JSON.stringify({ text: friendlyMessage })}\n\n`);
-        res.write('data: [DONE]\n\n');
-        res.end();
-        return;
-      }
+      res.write(`data: ${JSON.stringify({ text: "⚠️ Image generation is not available with Groq. Please use text-only prompts." })}\n\n`);
+      res.write('data: [DONE]\n\n');
+      res.end();
+      return;
     }
 
     const systemInstruction = `You are a helpful AI assistant. You can answer questions on any topic except illegal activities, harmful content, or anything that promotes violence, hate speech, or criminal behavior. If asked about illegal topics, politely refuse and offer to help with something else. Be concise and direct.`;
 
     const groqKeys = getGroqApiKeys();
-    const geminiKeys = getApiKeys();
-    const isExplicitGemini = Boolean(model && model.startsWith('gemini'));
-    const isGroqCandidate = !image && groqKeys.length > 0;
+    const isGroqCandidate = groqKeys.length > 0;
+
+    // Handle image input - Groq doesn't support images
+    if (image) {
+      if (!res.headersSent) {
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+      }
+      res.write(`data: ${JSON.stringify({ text: "⚠️ Image analysis is not available with Groq models. Please use text-only messages or remove the image." })}\n\n`);
+      res.write('data: [DONE]\n\n');
+      res.end();
+      return;
+    }
 
     // Helper for Groq Messages
     const getGroqMessages = () => {
@@ -998,104 +609,7 @@ const systemInstruction = `You are a helpful AI assistant. You can answer questi
     // Add small delay to simulate natural typing speed (~30-50ms per chunk)
     const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-    // 1. Try Groq Streaming first (if Groq model or Gemini keys absent or default)
-    if (isGroqCandidate && (!isExplicitGemini || geminiKeys.length === 0)) {
-      try {
-        const stream = await callGroqStreamWithFallback(model || "openai/gpt-oss-120b", getGroqMessages());
-        
-        if (!res.headersSent) {
-          res.setHeader('Content-Type', 'text/event-stream');
-          res.setHeader('Cache-Control', 'no-cache');
-          res.setHeader('Connection', 'keep-alive');
-        }
-
-let insideThink = false;
-        for await (const chunk of stream) {
-          const delta = chunk.choices[0]?.delta?.content || "";
-if (delta) {
-            // Handle think blocks cleanly if reasoning model returns them
-            if (delta.includes("ulaire")) insideThink = true;
-            if (!insideThink) {
-              res.write(`data: ${JSON.stringify({ text: delta })}\n\n`);
-              await sleep(25 + Math.random() * 35); // 25-60ms delay for natural feel
-            }
-            if (delta.includes("nthink")) insideThink = false;
-          }
-        }
-        res.write('data: [DONE]\n\n');
-        res.end();
-        return;
-      } catch (groqStreamErr: any) {
-        console.warn("[Groq Stream] Failed, attempting Gemini fallback:", groqStreamErr?.message || groqStreamErr);
-      }
-    }
-
-    // 2. Try Gemini Streaming
-    if (geminiKeys.length > 0) {
-      try {
-        const geminiContents: any[] = [];
-        if (history && history.length > 0) {
-          for (const msg of history) {
-            if (!msg.text && !msg.image) continue;
-            const parts: any[] = [];
-            if (msg.image) {
-              parts.push({ inlineData: { data: msg.image.data, mimeType: msg.image.mimeType } });
-            }
-            if (msg.text) {
-              parts.push({ text: msg.text });
-            }
-            geminiContents.push({
-              role: msg.role === "user" ? "user" : "model",
-              parts: parts
-            });
-          }
-        }
-
-        const lastMsg = geminiContents[geminiContents.length - 1];
-        const hasLastUserMsg = lastMsg && lastMsg.role === "user" && 
-          (lastMsg.parts.some((p: any) => p.text === message) || (!message && image));
-
-        if (!hasLastUserMsg) {
-          const parts: any[] = [];
-          if (image) {
-            parts.push({ inlineData: { data: image.data, mimeType: image.mimeType } });
-          }
-          if (message) {
-            parts.push({ text: message });
-          } else if (image) {
-            parts.push({ text: "Please analyze this image." });
-          }
-          geminiContents.push({ role: "user", parts });
-        }
-
-        const selectedModel = model === 'gemini-3.1-pro-preview' ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
-        const responseStream = await callGeminiStreamWithFallback(selectedModel, geminiContents, {
-          systemInstruction: systemInstruction,
-          tools: [{ googleSearch: {} }]
-        });
-
-        if (!res.headersSent) {
-          res.setHeader('Content-Type', 'text/event-stream');
-          res.setHeader('Cache-Control', 'no-cache');
-          res.setHeader('Connection', 'keep-alive');
-        }
-
-        for await (const chunk of responseStream) {
-          const text = chunk.text || "";
-          if (text) {
-            res.write(`data: ${JSON.stringify({ text })}\n\n`);
-            await sleep(25 + Math.random() * 35); // 25-60ms delay for natural feel
-          }
-        }
-        res.write('data: [DONE]\n\n');
-        res.end();
-        return;
-      } catch (geminiStreamErr: any) {
-        console.warn("[Gemini Stream] Failed, attempting Groq fallback:", geminiStreamErr?.message || geminiStreamErr);
-      }
-    }
-
-    // 3. Fallback to Groq if Gemini failed
+    // Try Groq Streaming
     if (isGroqCandidate) {
       try {
         const stream = await callGroqStreamWithFallback(model || "openai/gpt-oss-120b", getGroqMessages());
@@ -1110,18 +624,20 @@ if (delta) {
         for await (const chunk of stream) {
           const delta = chunk.choices[0]?.delta?.content || "";
           if (delta) {
-            if (delta.includes("<think>")) insideThink = true;
+            // Handle think blocks cleanly if reasoning model returns them
+            if (delta.includes("think")) insideThink = true;
             if (!insideThink) {
               res.write(`data: ${JSON.stringify({ text: delta })}\n\n`);
+              await sleep(25 + Math.random() * 35); // 25-60ms delay for natural feel
             }
-            if (delta.includes("</think>")) insideThink = false;
+            if (delta.includes("think")) insideThink = false;
           }
         }
         res.write('data: [DONE]\n\n');
         res.end();
         return;
-      } catch (groqFinalErr: any) {
-        console.error("Groq Final Stream Error:", groqFinalErr);
+      } catch (groqStreamErr: any) {
+        console.warn("[Groq Stream] Failed:", groqStreamErr?.message || groqStreamErr);
       }
     }
 
@@ -1131,7 +647,7 @@ if (delta) {
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
     }
-    res.write(`data: ${JSON.stringify({ text: "⚠️ I am currently unable to generate a response. Please verify that your GROQ_API_KEY or GEMINI_API_KEY is configured." })}\n\n`);
+    res.write(`data: ${JSON.stringify({ text: "⚠️ I am currently unable to generate a response. Please verify that your GROQ_API_KEY is configured." })}\n\n`);
     res.write('data: [DONE]\n\n');
     res.end();
   });
@@ -1149,39 +665,22 @@ if (delta) {
 
       let trackingDetails;
       try {
-        const response = await callGeminiWithFallback("gemini-2.0-flash", prompt, {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              awb: { type: Type.STRING },
-              carrier: { type: Type.STRING },
-              status: { type: Type.STRING, description: "Current high-level status of the package" },
-              origin: { type: Type.STRING, description: "City or location of origin" },
-              destination: { type: Type.STRING, description: "Final destination city or location" },
-              estimatedDelivery: { type: Type.STRING, description: "Estimated delivery date" },
-              weight: { type: Type.STRING, description: "Weight of package" },
-              history: {
-                type: Type.ARRAY,
-                description: "Full transit steps, from most recent to oldest",
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    date: { type: Type.STRING, description: "Date of update (e.g., July 10, 2026)" },
-                    time: { type: Type.STRING, description: "Time of update (e.g., 03:30 PM)" },
-                    location: { type: Type.STRING, description: "Location city or facility name" },
-                    activity: { type: Type.STRING, description: "Description of the tracking action" }
-                  },
-                  required: ["date", "activity"]
-                }
-              }
-            },
-            required: ["awb", "status", "history"]
-          },
-          tools: [{ googleSearch: {} }]
+        const groqKeys = getGroqApiKeys();
+        if (groqKeys.length === 0) throw new Error("No Groq API key");
+        
+        const groq = new Groq({ apiKey: groqKeys[0] });
+        const completion = await groq.chat.completions.create({
+          model: "groq/compound",
+          messages: [
+            { role: "system", content: "You are a package tracking assistant. Return only valid JSON." },
+            { role: "user", content: prompt }
+          ],
+          temperature: 0.3,
+          max_tokens: 2048,
+          response_format: { type: "json_object" }
         });
 
-        trackingDetails = JSON.parse(response.text || "{}");
+        trackingDetails = JSON.parse(completion.choices[0]?.message?.content || "{}");
       } catch (apiError) {
         console.log(`[Tracking Gateway] Standard API lookup returned fallback state for ID ${trackingId}. Activating dynamic courier simulation.`);
         
@@ -1297,23 +796,24 @@ Return coordinates to perfectly position and size a digital clothing item over t
 If no person is detected, return default values (x: 50, y: 55, scale: 1.0, stretch: 1.0).`
       };
 
-      const response = await callGeminiWithFallback("gemini-2.0-flash", {
-        parts: [imagePart, promptPart]
-      }, {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            x: { type: Type.NUMBER, description: "Torso center X coordinate (0-100)" },
-            y: { type: Type.NUMBER, description: "Torso center Y coordinate (0-100)" },
-            scale: { type: Type.NUMBER, description: "Optimal size scale (0.4-2.5)" },
-            stretch: { type: Type.NUMBER, description: "Optimal stretch height (0.5-2.0)" }
-          },
-          required: ["x", "y", "scale", "stretch"]
-        }
+      const groqKeys = getGroqApiKeys();
+      if (groqKeys.length === 0) {
+        return res.json({ x: 50, y: 55, scale: 1.0, stretch: 1.0 });
+      }
+
+      const groq = new Groq({ apiKey: groqKeys[0] });
+      const completion = await groq.chat.completions.create({
+        model: "groq/compound",
+        messages: [
+          { role: "system", content: "Return only valid JSON with x, y, scale, stretch values." },
+          { role: "user", content: promptPart.text }
+        ],
+        temperature: 0.3,
+        max_tokens: 512,
+        response_format: { type: "json_object" }
       });
 
-      const bounds = JSON.parse(response.text || "{}");
+      const bounds = JSON.parse(completion.choices[0]?.message?.content || "{}");
       res.json(bounds);
     } catch (error) {
       console.error("Detect body bounds API Error:", error);

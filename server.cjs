@@ -27,7 +27,6 @@ var import_express = __toESM(require("express"), 1);
 var import_http = __toESM(require("http"), 1);
 var import_cors = __toESM(require("cors"), 1);
 var import_vite = require("vite");
-var import_genai = require("@google/genai");
 var import_groq_sdk = __toESM(require("groq-sdk"), 1);
 var import_cryptpdf = require("cryptpdf");
 var import_rss_parser = __toESM(require("rss-parser"), 1);
@@ -172,7 +171,7 @@ async function startServer() {
         ...generalNewsFeed.items || []
       ];
       const cleanSnippet = (str = "") => {
-        return str.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").trim();
+        return str.replace(/<[^>]+>/g, "").replace(/&/g, "&").replace(/"/g, '"').replace(/'/g, "'").replace(/&nbsp;/g, " ").trim();
       };
       const seenLinks = /* @__PURE__ */ new Set();
       const processedItems = rawItems.filter((item) => {
@@ -222,38 +221,6 @@ async function startServer() {
       res.status(500).json({ error: "Failed to fetch latest updates" });
     }
   });
-  function cleanApiKey(key) {
-    let cleaned = key.trim();
-    cleaned = cleaned.replace(/^['"]|['"]$/g, "");
-    const aizaMatch = cleaned.match(/(AIzaSy[A-Za-z0-9_-]+)/);
-    if (aizaMatch) {
-      return aizaMatch[1];
-    }
-    const aqMatch = cleaned.match(/(AQ\.[A-Za-z0-9_-]+)/);
-    if (aqMatch) {
-      return aqMatch[1];
-    }
-    cleaned = cleaned.replace(/^(?:\d+[\.\-\s\)]+|\[\d+\]|\(\d+\))\s*/, "");
-    return cleaned.trim();
-  }
-  function getApiKeys() {
-    const keys = [];
-    const rawKey = process.env.GEMINI_API_KEY || "";
-    if (rawKey) {
-      const splitKeys = rawKey.split(/[,\n;]+/).map((k) => cleanApiKey(k)).filter(Boolean);
-      keys.push(...splitKeys.filter((k) => k.startsWith("AIzaSy") || !k.startsWith("AQ.") && k.length > 20));
-    }
-    for (let i = 1; i <= 50; i++) {
-      const numberedKey = process.env[`GEMINI_API_KEY_${i}`];
-      if (numberedKey) {
-        const cleaned = cleanApiKey(numberedKey);
-        if (cleaned && (cleaned.startsWith("AIzaSy") || !cleaned.startsWith("AQ.") && cleaned.length > 20)) {
-          keys.push(cleaned);
-        }
-      }
-    }
-    return [...new Set(keys)];
-  }
   function cleanGroqApiKey(key) {
     let cleaned = key.trim();
     cleaned = cleaned.replace(/^['"]|['"]$/g, "");
@@ -327,8 +294,8 @@ async function startServer() {
             max_tokens: 4096
           });
           let reply = completion.choices[0]?.message?.content || "";
-          if (reply.includes("</think>")) {
-            reply = reply.split("</think>").pop()?.trim() || reply;
+          if (reply.includes("think")) {
+            reply = reply.split("think").pop()?.trim() || reply;
           }
           if (reply) {
             return reply;
@@ -378,243 +345,6 @@ async function startServer() {
     }
     throw lastError || new Error("Failed to start Groq stream");
   }
-  function sanitizeChatContents(contents) {
-    if (!Array.isArray(contents)) return contents;
-    let sanitized = contents.map((item) => {
-      if (!item || !item.parts) return null;
-      const cleanParts = item.parts.filter((p) => p.text || p.inlineData);
-      if (cleanParts.length === 0) return null;
-      return {
-        role: item.role === "model" ? "model" : "user",
-        parts: cleanParts
-      };
-    }).filter(Boolean);
-    while (sanitized.length > 0 && sanitized[0].role !== "user") {
-      sanitized.shift();
-    }
-    if (sanitized.length === 0) {
-      return [{ role: "user", parts: [{ text: "Hello" }] }];
-    }
-    const alternated = [];
-    for (const msg of sanitized) {
-      if (alternated.length === 0) {
-        alternated.push(msg);
-      } else {
-        const lastMsg = alternated[alternated.length - 1];
-        if (lastMsg.role === msg.role) {
-          lastMsg.parts.push(...msg.parts);
-        } else {
-          alternated.push(msg);
-        }
-      }
-    }
-    return alternated;
-  }
-  async function callGeminiWithFallback(model, contents, config = {}) {
-    const uniqueKeys = getApiKeys();
-    const sanitizedContents = sanitizeChatContents(contents);
-    let lastError = null;
-    const modelsToTry = [
-      model,
-      model.includes("pro") ? "gemini-1.5-pro" : "gemini-1.5-flash",
-      "gemini-1.5-flash",
-      "gemini-2.5-flash"
-    ];
-    const uniqueModels = [...new Set(modelsToTry)];
-    for (const currentModel of uniqueModels) {
-      for (let i = 0; i < uniqueKeys.length; i++) {
-        const currentKey = uniqueKeys[i];
-        try {
-          const ai = new import_genai.GoogleGenAI({
-            apiKey: currentKey,
-            httpOptions: { headers: { "User-Agent": "aistudio-build" } }
-          });
-          const response = await ai.models.generateContent({
-            model: currentModel,
-            contents: sanitizedContents,
-            config
-          });
-          return response;
-        } catch (error) {
-          console.log(`[Backup Route Info] model ${currentModel} with key index ${i + 1} response status checked. Attempting fallback...`);
-          lastError = error;
-        }
-      }
-    }
-    throw lastError;
-  }
-  async function callGeminiStreamWithFallback(model, contents, config = {}) {
-    const uniqueKeys = getApiKeys();
-    const sanitizedContents = sanitizeChatContents(contents);
-    let lastError = null;
-    const modelsToTry = [
-      model,
-      model.includes("pro") ? "gemini-1.5-pro" : "gemini-1.5-flash",
-      "gemini-1.5-flash",
-      "gemini-2.5-flash"
-    ];
-    const uniqueModels = [...new Set(modelsToTry)];
-    for (const currentModel of uniqueModels) {
-      for (let i = 0; i < uniqueKeys.length; i++) {
-        const currentKey = uniqueKeys[i];
-        try {
-          const ai = new import_genai.GoogleGenAI({
-            apiKey: currentKey,
-            httpOptions: { headers: { "User-Agent": "aistudio-build" } }
-          });
-          const responseStream = await ai.models.generateContentStream({
-            model: currentModel,
-            contents: sanitizedContents,
-            config
-          });
-          const iterator = responseStream[Symbol.asyncIterator]();
-          const firstResult = await iterator.next();
-          if (!firstResult.done) {
-            async function* combinedGenerator() {
-              yield firstResult.value;
-              let nextResult = await iterator.next();
-              while (!nextResult.done) {
-                yield nextResult.value;
-                nextResult = await iterator.next();
-              }
-            }
-            return combinedGenerator();
-          } else {
-            return responseStream;
-          }
-        } catch (error) {
-          console.log(`[Backup Route Info] stream model ${currentModel} with key index ${i + 1} response status checked. Attempting fallback...`);
-          lastError = error;
-        }
-      }
-    }
-    throw lastError;
-  }
-  async function callGeminiImageWithFallback(contents, config = {}) {
-    const models = [
-      "imagen-3.0-generate-002",
-      "gemini-2.0-flash-exp-image-generation",
-      "gemini-2.0-flash-preview-image-generation"
-    ];
-    const uniqueKeys = getApiKeys();
-    let lastError = null;
-    let textPrompt = "A highly detailed, professional digital illustration.";
-    if (contents && contents.parts) {
-      const textPart = contents.parts.find((p) => p.text);
-      if (textPart) {
-        textPrompt = textPart.text;
-      }
-    } else if (typeof contents === "string") {
-      textPrompt = contents;
-    }
-    for (const model of models) {
-      for (let i = 0; i < uniqueKeys.length; i++) {
-        const currentKey = uniqueKeys[i];
-        try {
-          const ai = new import_genai.GoogleGenAI({
-            apiKey: currentKey,
-            httpOptions: { headers: { "User-Agent": "aistudio-build" } }
-          });
-          if (model.startsWith("imagen-")) {
-            const response = await ai.models.generateImages({
-              model,
-              prompt: textPrompt,
-              config: {
-                numberOfImages: 1,
-                outputMimeType: "image/png",
-                aspectRatio: config?.imageConfig?.aspectRatio || "1:1"
-              }
-            });
-            const base64Data = response.generatedImages?.[0]?.image?.imageBytes;
-            if (base64Data) {
-              return base64Data;
-            }
-          } else {
-            const response = await ai.models.generateContent({
-              model,
-              contents,
-              config
-            });
-            for (const part of response.candidates?.[0]?.content?.parts || []) {
-              if (part.inlineData?.data) {
-                return part.inlineData.data;
-              }
-            }
-          }
-        } catch (error) {
-          console.log(`[Image Model Info] ${model} with key index ${i + 1} failed, trying next...`);
-          lastError = error;
-        }
-      }
-    }
-    throw lastError || new Error("Failed to generate image using any image model.");
-  }
-  app.post("/api/pdf-ocr", async (req, res) => {
-    try {
-      const { pdfBase64 } = req.body;
-      const prompt = `Extract all text from this document accurately. Do not summarize.`;
-      const response = await callGeminiWithFallback("gemini-2.0-flash", [
-        { role: "user", parts: [{ inlineData: { data: pdfBase64, mimeType: "application/pdf" } }, { text: prompt }] }
-      ]);
-      res.json({ text: response.text });
-    } catch (error) {
-      res.status(500).json({ error: error?.message || "Failed to OCR." });
-    }
-  });
-  app.post("/api/pdf-summarize", async (req, res) => {
-    try {
-      const { pdfBase64 } = req.body;
-      const prompt = `Summarize this document clearly and concisely.`;
-      const response = await callGeminiWithFallback("gemini-2.0-flash", [
-        { role: "user", parts: [{ inlineData: { data: pdfBase64, mimeType: "application/pdf" } }, { text: prompt }] }
-      ]);
-      res.json({ summary: response.text });
-    } catch (error) {
-      res.status(500).json({ error: error?.message || "Failed to summarize." });
-    }
-  });
-  app.post("/api/pdf-translate", async (req, res) => {
-    try {
-      const { pdfBase64, targetLanguage } = req.body;
-      const prompt = `Translate this document to ${targetLanguage}. Maintain formatting.`;
-      const response = await callGeminiWithFallback("gemini-2.0-flash", [
-        { role: "user", parts: [{ inlineData: { data: pdfBase64, mimeType: "application/pdf" } }, { text: prompt }] }
-      ]);
-      res.json({ translation: response.text });
-    } catch (error) {
-      res.status(500).json({ error: error?.message || "Failed to translate." });
-    }
-  });
-  app.post("/api/pdf-to-word", async (req, res) => {
-    try {
-      const { pdfBase64 } = req.body;
-      const prompt = `Convert this PDF to a Word document outline. Use markdown formatting.`;
-      const response = await callGeminiWithFallback("gemini-2.0-flash", [
-        { role: "user", parts: [{ inlineData: { data: pdfBase64, mimeType: "application/pdf" } }, { text: prompt }] }
-      ]);
-      res.json({ text: response.text });
-    } catch (error) {
-      res.status(500).json({ error: error?.message || "Failed to convert." });
-    }
-  });
-  app.post("/api/pdf-to-excel", async (req, res) => {
-    try {
-      const { pdfBase64 } = req.body;
-      const prompt = `Extract all tables from this PDF to CSV format. Reply only with CSV data.`;
-      const response = await callGeminiWithFallback("gemini-2.0-flash", [
-        { role: "user", parts: [{ inlineData: { data: pdfBase64, mimeType: "application/pdf" } }, { text: prompt }] }
-      ]);
-      let csvText = response.text || "";
-      if (csvText.includes("```csv")) {
-        csvText = csvText.split("```csv")[1].split("```")[0];
-      } else if (csvText.includes("```")) {
-        csvText = csvText.split("```")[1].split("```")[0];
-      }
-      res.json({ csv: csvText.trim() });
-    } catch (error) {
-      res.status(500).json({ error: error?.message || "Failed to convert." });
-    }
-  });
   app.post("/api/pdf-protect", async (req, res) => {
     try {
       const { pdfBase64, password } = req.body;
@@ -650,14 +380,30 @@ async function startServer() {
       ]
     });
   });
+  app.get("/health", (req, res) => {
+    res.status(200).json({
+      status: "ok",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || "development"
+    });
+  });
+  app.get("/api/health", (req, res) => {
+    res.status(200).json({
+      status: "ok",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || "development"
+    });
+  });
   app.post("/api/chat", async (req, res) => {
     try {
       const { message, history, model, image } = req.body;
       const systemInstruction = `You are a helpful AI assistant. You can answer questions on any topic except illegal activities, harmful content, or anything that promotes violence, hate speech, or criminal behavior. If asked about illegal topics, politely refuse and offer to help with something else. Be concise and direct.`;
       const groqKeys = getGroqApiKeys();
-      const geminiKeys = getApiKeys();
-      const isExplicitGemini = Boolean(model && model.startsWith("gemini"));
-      const isGroqCandidate = !image && groqKeys.length > 0;
+      if (image) {
+        return res.status(400).json({ error: "Image analysis is not available with Groq models. Please use text-only messages or remove the image." });
+      }
       const getGroqMessages = () => {
         const msgs = [{ role: "system", content: systemInstruction }];
         if (history && history.length > 0) {
@@ -678,62 +424,13 @@ async function startServer() {
         }
         return msgs;
       };
-      if (isGroqCandidate && (!isExplicitGemini || geminiKeys.length === 0)) {
-        try {
-          const reply = await callGroqWithFallback(model || "openai/gpt-oss-120b", getGroqMessages());
-          return res.json({ reply, provider: "groq" });
-        } catch (groqError) {
-          console.warn("[Groq Chat] Falling back to Gemini:", groqError?.message || groqError);
-        }
-      }
-      if (geminiKeys.length > 0) {
-        try {
-          const geminiContents = [];
-          if (history && history.length > 0) {
-            for (const msg of history) {
-              if (!msg.text && !msg.image) continue;
-              const parts = [];
-              if (msg.image) {
-                parts.push({ inlineData: { data: msg.image.data, mimeType: msg.image.mimeType } });
-              }
-              if (msg.text) {
-                parts.push({ text: msg.text });
-              }
-              geminiContents.push({
-                role: msg.role === "user" ? "user" : "model",
-                parts
-              });
-            }
-          }
-          const lastMsg = geminiContents[geminiContents.length - 1];
-          const hasLastUserMsg = lastMsg && lastMsg.role === "user" && (lastMsg.parts.some((p) => p.text === message) || !message && image);
-          if (!hasLastUserMsg) {
-            const parts = [];
-            if (image) {
-              parts.push({ inlineData: { data: image.data, mimeType: image.mimeType } });
-            }
-            if (message) {
-              parts.push({ text: message });
-            } else if (image) {
-              parts.push({ text: "Please analyze this image." });
-            }
-            geminiContents.push({ role: "user", parts });
-          }
-          const selectedModel = model === "gemini-3.1-pro-preview" ? "gemini-2.5-pro" : "gemini-2.5-flash";
-          const response = await callGeminiWithFallback(selectedModel, geminiContents, {
-            systemInstruction,
-            tools: [{ googleSearch: {} }]
-          });
-          return res.json({ reply: response.text, provider: "gemini" });
-        } catch (geminiError) {
-          console.warn("[Gemini Chat] Failed, trying Groq fallback:", geminiError?.message || geminiError);
-        }
-      }
-      if (isGroqCandidate) {
+      try {
         const reply = await callGroqWithFallback(model || "openai/gpt-oss-120b", getGroqMessages());
         return res.json({ reply, provider: "groq" });
+      } catch (groqError) {
+        console.error("[Groq Chat] Error:", groqError?.message || groqError);
+        throw groqError;
       }
-      throw new Error("No available AI provider configured with valid credentials.");
     } catch (error) {
       console.error("API Chat Error:", error);
       res.status(500).json({ error: error?.message || "Failed to generate response." });
@@ -746,52 +443,29 @@ async function startServer() {
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
-      const labelText = image ? "Editing your image using Imagen AI..." : "Generating your image using Imagen AI...";
-      res.write(`data: ${JSON.stringify({ text: `\u{1F3A8} ${labelText}
-
-Please hold on a moment...` })}
+      res.write(`data: ${JSON.stringify({ text: "\u26A0\uFE0F Image generation is not available with Groq. Please use text-only prompts." })}
 
 `);
-      try {
-        const contents = { parts: [] };
-        if (image) {
-          contents.parts.push({ inlineData: { data: image.data, mimeType: image.mimeType } });
-        }
-        contents.parts.push({ text: message || "Create a highly detailed, professional digital illustration." });
-        const imageBase64 = await callGeminiImageWithFallback(contents, {
-          imageConfig: { aspectRatio: "1:1", imageSize: "1K" }
-        });
-        res.write(`data: ${JSON.stringify({
-          text: `Successfully created image based on prompt: "${message || "digital illustration"}"`,
-          generatedImage: `data:image/png;base64,${imageBase64}`
-        })}
-
-`);
-        res.write("data: [DONE]\n\n");
-        res.end();
-        return;
-      } catch (err) {
-        console.error("Image generation error:", err);
-        const errString = String(err.message || err);
-        let friendlyMessage = `\u26A0\uFE0F **Image generation notice**: Image generation requires Gemini Imagen API credentials. `;
-        if (errString.includes("quota") || errString.includes("429") || errString.includes("RESOURCE_EXHAUSTED")) {
-          friendlyMessage += "Rate limit reached. Please try again in a few moments.";
-        } else {
-          friendlyMessage += "Please verify your Gemini API Key in settings.";
-        }
-        res.write(`data: ${JSON.stringify({ text: friendlyMessage })}
-
-`);
-        res.write("data: [DONE]\n\n");
-        res.end();
-        return;
-      }
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
     }
     const systemInstruction = `You are a helpful AI assistant. You can answer questions on any topic except illegal activities, harmful content, or anything that promotes violence, hate speech, or criminal behavior. If asked about illegal topics, politely refuse and offer to help with something else. Be concise and direct.`;
     const groqKeys = getGroqApiKeys();
-    const geminiKeys = getApiKeys();
-    const isExplicitGemini = Boolean(model && model.startsWith("gemini"));
-    const isGroqCandidate = !image && groqKeys.length > 0;
+    const isGroqCandidate = groqKeys.length > 0;
+    if (image) {
+      if (!res.headersSent) {
+        res.setHeader("Content-Type", "text/event-stream");
+        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Connection", "keep-alive");
+      }
+      res.write(`data: ${JSON.stringify({ text: "\u26A0\uFE0F Image analysis is not available with Groq models. Please use text-only messages or remove the image." })}
+
+`);
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
     const getGroqMessages = () => {
       const msgs = [{ role: "system", content: systemInstruction }];
       if (history && history.length > 0) {
@@ -823,94 +497,6 @@ Please hold on a moment...` })}
 `);
     };
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-    if (isGroqCandidate && (!isExplicitGemini || geminiKeys.length === 0)) {
-      try {
-        const stream = await callGroqStreamWithFallback(model || "openai/gpt-oss-120b", getGroqMessages());
-        if (!res.headersSent) {
-          res.setHeader("Content-Type", "text/event-stream");
-          res.setHeader("Cache-Control", "no-cache");
-          res.setHeader("Connection", "keep-alive");
-        }
-        let insideThink = false;
-        for await (const chunk of stream) {
-          const delta = chunk.choices[0]?.delta?.content || "";
-          if (delta) {
-            if (delta.includes("ulaire")) insideThink = true;
-            if (!insideThink) {
-              res.write(`data: ${JSON.stringify({ text: delta })}
-
-`);
-              await sleep(25 + Math.random() * 35);
-            }
-            if (delta.includes("nthink")) insideThink = false;
-          }
-        }
-        res.write("data: [DONE]\n\n");
-        res.end();
-        return;
-      } catch (groqStreamErr) {
-        console.warn("[Groq Stream] Failed, attempting Gemini fallback:", groqStreamErr?.message || groqStreamErr);
-      }
-    }
-    if (geminiKeys.length > 0) {
-      try {
-        const geminiContents = [];
-        if (history && history.length > 0) {
-          for (const msg of history) {
-            if (!msg.text && !msg.image) continue;
-            const parts = [];
-            if (msg.image) {
-              parts.push({ inlineData: { data: msg.image.data, mimeType: msg.image.mimeType } });
-            }
-            if (msg.text) {
-              parts.push({ text: msg.text });
-            }
-            geminiContents.push({
-              role: msg.role === "user" ? "user" : "model",
-              parts
-            });
-          }
-        }
-        const lastMsg = geminiContents[geminiContents.length - 1];
-        const hasLastUserMsg = lastMsg && lastMsg.role === "user" && (lastMsg.parts.some((p) => p.text === message) || !message && image);
-        if (!hasLastUserMsg) {
-          const parts = [];
-          if (image) {
-            parts.push({ inlineData: { data: image.data, mimeType: image.mimeType } });
-          }
-          if (message) {
-            parts.push({ text: message });
-          } else if (image) {
-            parts.push({ text: "Please analyze this image." });
-          }
-          geminiContents.push({ role: "user", parts });
-        }
-        const selectedModel = model === "gemini-3.1-pro-preview" ? "gemini-2.5-pro" : "gemini-2.5-flash";
-        const responseStream = await callGeminiStreamWithFallback(selectedModel, geminiContents, {
-          systemInstruction,
-          tools: [{ googleSearch: {} }]
-        });
-        if (!res.headersSent) {
-          res.setHeader("Content-Type", "text/event-stream");
-          res.setHeader("Cache-Control", "no-cache");
-          res.setHeader("Connection", "keep-alive");
-        }
-        for await (const chunk of responseStream) {
-          const text = chunk.text || "";
-          if (text) {
-            res.write(`data: ${JSON.stringify({ text })}
-
-`);
-            await sleep(25 + Math.random() * 35);
-          }
-        }
-        res.write("data: [DONE]\n\n");
-        res.end();
-        return;
-      } catch (geminiStreamErr) {
-        console.warn("[Gemini Stream] Failed, attempting Groq fallback:", geminiStreamErr?.message || geminiStreamErr);
-      }
-    }
     if (isGroqCandidate) {
       try {
         const stream = await callGroqStreamWithFallback(model || "openai/gpt-oss-120b", getGroqMessages());
@@ -923,20 +509,21 @@ Please hold on a moment...` })}
         for await (const chunk of stream) {
           const delta = chunk.choices[0]?.delta?.content || "";
           if (delta) {
-            if (delta.includes("<think>")) insideThink = true;
+            if (delta.includes("think")) insideThink = true;
             if (!insideThink) {
               res.write(`data: ${JSON.stringify({ text: delta })}
 
 `);
+              await sleep(25 + Math.random() * 35);
             }
-            if (delta.includes("</think>")) insideThink = false;
+            if (delta.includes("think")) insideThink = false;
           }
         }
         res.write("data: [DONE]\n\n");
         res.end();
         return;
-      } catch (groqFinalErr) {
-        console.error("Groq Final Stream Error:", groqFinalErr);
+      } catch (groqStreamErr) {
+        console.warn("[Groq Stream] Failed:", groqStreamErr?.message || groqStreamErr);
       }
     }
     if (!res.headersSent) {
@@ -944,7 +531,7 @@ Please hold on a moment...` })}
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
     }
-    res.write(`data: ${JSON.stringify({ text: "\u26A0\uFE0F I am currently unable to generate a response. Please verify that your GROQ_API_KEY or GEMINI_API_KEY is configured." })}
+    res.write(`data: ${JSON.stringify({ text: "\u26A0\uFE0F I am currently unable to generate a response. Please verify that your GROQ_API_KEY is configured." })}
 
 `);
     res.write("data: [DONE]\n\n");
@@ -960,38 +547,20 @@ Please hold on a moment...` })}
       const prompt = `Search the live web for the current real-time tracking details of the package/consignment with ID "${trackingId}" shipped via "${carrier || "Auto Detect"}". Find the overall status (e.g. In Transit, Out for Delivery, Delivered, Booked), current location, estimated delivery date, weight, and the complete chronological history of transit actions/locations with date and time. Do not guess; search the web.`;
       let trackingDetails;
       try {
-        const response = await callGeminiWithFallback("gemini-2.0-flash", prompt, {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: import_genai.Type.OBJECT,
-            properties: {
-              awb: { type: import_genai.Type.STRING },
-              carrier: { type: import_genai.Type.STRING },
-              status: { type: import_genai.Type.STRING, description: "Current high-level status of the package" },
-              origin: { type: import_genai.Type.STRING, description: "City or location of origin" },
-              destination: { type: import_genai.Type.STRING, description: "Final destination city or location" },
-              estimatedDelivery: { type: import_genai.Type.STRING, description: "Estimated delivery date" },
-              weight: { type: import_genai.Type.STRING, description: "Weight of package" },
-              history: {
-                type: import_genai.Type.ARRAY,
-                description: "Full transit steps, from most recent to oldest",
-                items: {
-                  type: import_genai.Type.OBJECT,
-                  properties: {
-                    date: { type: import_genai.Type.STRING, description: "Date of update (e.g., July 10, 2026)" },
-                    time: { type: import_genai.Type.STRING, description: "Time of update (e.g., 03:30 PM)" },
-                    location: { type: import_genai.Type.STRING, description: "Location city or facility name" },
-                    activity: { type: import_genai.Type.STRING, description: "Description of the tracking action" }
-                  },
-                  required: ["date", "activity"]
-                }
-              }
-            },
-            required: ["awb", "status", "history"]
-          },
-          tools: [{ googleSearch: {} }]
+        const groqKeys = getGroqApiKeys();
+        if (groqKeys.length === 0) throw new Error("No Groq API key");
+        const groq = new import_groq_sdk.default({ apiKey: groqKeys[0] });
+        const completion = await groq.chat.completions.create({
+          model: "groq/compound",
+          messages: [
+            { role: "system", content: "You are a package tracking assistant. Return only valid JSON." },
+            { role: "user", content: prompt }
+          ],
+          temperature: 0.3,
+          max_tokens: 2048,
+          response_format: { type: "json_object" }
         });
-        trackingDetails = JSON.parse(response.text || "{}");
+        trackingDetails = JSON.parse(completion.choices[0]?.message?.content || "{}");
       } catch (apiError) {
         console.log(`[Tracking Gateway] Standard API lookup returned fallback state for ID ${trackingId}. Activating dynamic courier simulation.`);
         const carrierName = carrier || "Courier Partner";
@@ -1095,22 +664,22 @@ Return coordinates to perfectly position and size a digital clothing item over t
 
 If no person is detected, return default values (x: 50, y: 55, scale: 1.0, stretch: 1.0).`
       };
-      const response = await callGeminiWithFallback("gemini-2.0-flash", {
-        parts: [imagePart, promptPart]
-      }, {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: import_genai.Type.OBJECT,
-          properties: {
-            x: { type: import_genai.Type.NUMBER, description: "Torso center X coordinate (0-100)" },
-            y: { type: import_genai.Type.NUMBER, description: "Torso center Y coordinate (0-100)" },
-            scale: { type: import_genai.Type.NUMBER, description: "Optimal size scale (0.4-2.5)" },
-            stretch: { type: import_genai.Type.NUMBER, description: "Optimal stretch height (0.5-2.0)" }
-          },
-          required: ["x", "y", "scale", "stretch"]
-        }
+      const groqKeys = getGroqApiKeys();
+      if (groqKeys.length === 0) {
+        return res.json({ x: 50, y: 55, scale: 1, stretch: 1 });
+      }
+      const groq = new import_groq_sdk.default({ apiKey: groqKeys[0] });
+      const completion = await groq.chat.completions.create({
+        model: "groq/compound",
+        messages: [
+          { role: "system", content: "Return only valid JSON with x, y, scale, stretch values." },
+          { role: "user", content: promptPart.text }
+        ],
+        temperature: 0.3,
+        max_tokens: 512,
+        response_format: { type: "json_object" }
       });
-      const bounds = JSON.parse(response.text || "{}");
+      const bounds = JSON.parse(completion.choices[0]?.message?.content || "{}");
       res.json(bounds);
     } catch (error) {
       console.error("Detect body bounds API Error:", error);

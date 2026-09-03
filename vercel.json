@@ -5,10 +5,10 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://rakhiinternet-backend.onrender.com/api/$1"
+      "destination": "https://rakhiinternetbackend.onrender.com/api/$1"
     }
   ],
   "env": {
-    "VITE_API_URL": "https://rakhiinternet-backend.onrender.com"
+    "VITE_API_URL": "https://rakhiinternetbackend.onrender.com"
   }
 }

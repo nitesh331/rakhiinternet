@@ -12,6 +12,8 @@ import remarkGfm from 'remark-gfm';
 // @ts-ignore
 import aiBotImage from '../assets/images/regenerated_image_1783931513099.png';
 
+const API_BASE = 'https://rakhiinternetbackend.onrender.com';
+
 async function retryFetch(url: string, options: RequestInit = {}, retries = 3, timeoutMs = 120000): Promise<Response> {
   let lastResponse: Response | null = null;
   for (let attempt = 0; attempt < retries; attempt++) {
@@ -138,12 +140,20 @@ export default function ChatPortal({ onBack }: { onBack: () => void }) {
 
   
   useEffect(() => {
-    retryFetch('/api/ai-status')
+    retryFetch(`${API_BASE}/api/ai-status`)
       .then(res => res.json())
       .then(data => {
         setAiStatus(data);
       })
-      .catch(() => {});
+      .catch(() => {
+        // Retry once after 3s for cold start
+        setTimeout(() => {
+          retryFetch(`${API_BASE}/api/ai-status`)
+            .then(res => res.json())
+            .then(data => setAiStatus(data))
+            .catch(() => {});
+        }, 3000);
+      });
   }, []);
 
   useEffect(() => {
@@ -426,7 +436,7 @@ export default function ChatPortal({ onBack }: { onBack: () => void }) {
     setIsLoading(true);
 
     try {
-      const response = await retryFetch('/api/chat-stream', {
+      const response = await retryFetch(`${API_BASE}/api/chat-stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -522,7 +532,7 @@ export default function ChatPortal({ onBack }: { onBack: () => void }) {
     setIsLoading(true);
 
     try {
-      const response = await retryFetch('/api/chat-stream', {
+      const response = await retryFetch(`${API_BASE}/api/chat-stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
