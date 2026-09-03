@@ -2,7 +2,6 @@ import "dotenv/config";
 import express from "express";
 import http from "http";
 import cors from "cors";
-import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import Groq from "groq-sdk";
@@ -16,10 +15,22 @@ async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
-  // CORS configuration
-  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+  // CORS configuration - allow Vercel frontend & local dev
+  const allowedOrigins = [
+    process.env.FRONTEND_URL || "https://rakhiinternet.vercel.app",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://rakhiinternet.vercel.app",
+    "https://rakhiinternetbackend.onrender.com"
+  ];
   app.use(cors({
-    origin: frontendUrl,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -1365,15 +1376,10 @@ If no person is detected, return default values (x: 50, y: 55, scale: 1.0, stret
     }
   });
 
-  // Vite middleware for development
+  // Vite middleware for development only
   const httpServer = http.createServer(app);
 
-  if (process.env.NODE_ENV === "production") {
-    app.use(express.static("dist"));
-    app.get("*", (req, res) => {
-      res.sendFile(path.resolve("dist/index.html"));
-    });
-  } else {
+  if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: {
         middlewareMode: true,

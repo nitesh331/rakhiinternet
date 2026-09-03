@@ -26,7 +26,6 @@ var import_config = require("dotenv/config");
 var import_express = __toESM(require("express"), 1);
 var import_http = __toESM(require("http"), 1);
 var import_cors = __toESM(require("cors"), 1);
-var import_path = __toESM(require("path"), 1);
 var import_vite = require("vite");
 var import_genai = require("@google/genai");
 var import_groq_sdk = __toESM(require("groq-sdk"), 1);
@@ -37,9 +36,21 @@ var rssParser = new import_rss_parser.default();
 async function startServer() {
   const app = (0, import_express.default)();
   const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3e3;
-  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+  const allowedOrigins = [
+    process.env.FRONTEND_URL || "https://rakhiinternet.vercel.app",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://rakhiinternet.vercel.app",
+    "https://rakhiinternetbackend.onrender.com"
+  ];
   app.use((0, import_cors.default)({
-    origin: frontendUrl,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"]
@@ -1151,12 +1162,7 @@ If no person is detected, return default values (x: 50, y: 55, scale: 1.0, stret
     }
   });
   const httpServer = import_http.default.createServer(app);
-  if (process.env.NODE_ENV === "production") {
-    app.use(import_express.default.static("dist"));
-    app.get("*", (req, res) => {
-      res.sendFile(import_path.default.resolve("dist/index.html"));
-    });
-  } else {
+  if (process.env.NODE_ENV !== "production") {
     const vite = await (0, import_vite.createServer)({
       server: {
         middlewareMode: true,
