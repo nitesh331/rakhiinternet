@@ -206,6 +206,7 @@ export default function App() {
   const [servicesOpen, setServicesOpen] = useState(false);
   const [courierOpen, setCourierOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [pdfToolsModalOpen, setPdfToolsModalOpen] = useState(false);
@@ -381,6 +382,7 @@ export default function App() {
         setServicesOpen(false);
         setCourierOpen(false);
         setContactOpen(false);
+        setAboutOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -597,6 +599,97 @@ export default function App() {
                 >
                   Latest Links
                 </button>
+
+                {/* About Button - Premium Dropdown */}
+                <div className="relative" style={{ perspective: "1200px" }}>
+                  <button
+                    onClick={() => setAboutOpen(!aboutOpen)}
+                    className={`font-medium transition-colors text-sm flex items-center gap-1 py-2 ${scrolled ? "text-gray-600 hover:text-blue-600" : "text-gray-200 hover:text-white"}`}
+                  >
+                    About{" "}
+                    <ChevronDown className={`w-4 h-4 transition-transform ${aboutOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {aboutOpen && (
+                    <div className="absolute top-full left-0 mt-2 w-80 bg-white/95 backdrop-blur-xl border border-gray-100 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] rounded-2xl flex flex-col py-2 z-50 animate-dropdown">
+                      <div className="px-4 py-3 border-b border-slate-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                            <Globe className="w-4 h-4 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-black text-slate-800">Rakhi Internet</p>
+                            <p className="text-[9px] text-slate-400 uppercase tracking-wider">Digital & CSC Service Hub</p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                          Haryana's trusted digital service center providing government services, education counseling, courier solutions, and AI-powered tools under one roof.
+                        </p>
+                      </div>
+
+                      <div className="p-3 space-y-2">
+                        <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <CheckCircle2 className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                            <span className="text-xs font-bold text-blue-800">CSC & Government Services</span>
+                          </div>
+                          <p className="text-[10px] text-blue-700 ml-6 leading-relaxed">
+                            Aadhaar, PAN, Voter ID, Passport, Schemes, Bill Payments, Banking, Insurance
+                          </p>
+                        </div>
+
+                        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                            <span className="text-xs font-bold text-emerald-800">University Admissions</span>
+                          </div>
+                          <p className="text-[10px] text-emerald-700 ml-6 leading-relaxed">
+                            KUK, MDU, CDLU, GJU, HAU, B.Ed, Distance Education, CDOE, Career Guidance
+                          </p>
+                        </div>
+
+                        <div className="bg-cyan-50 border border-cyan-100 rounded-xl p-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <CheckCircle2 className="w-4 h-4 text-cyan-600 flex-shrink-0" />
+                            <span className="text-xs font-bold text-cyan-800">International Courier</span>
+                          </div>
+                          <p className="text-[10px] text-cyan-700 ml-6 leading-relaxed">
+                            DHL, FedEx, Aramex, DTDC, Delhivery - Door pickup, Live tracking, Best rates
+                          </p>
+                        </div>
+
+                        <div className="bg-purple-50 border border-purple-100 rounded-xl p-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <CheckCircle2 className="w-4 h-4 text-purple-600 flex-shrink-0" />
+                            <span className="text-xs font-bold text-purple-800">AI-Powered Tools</span>
+                          </div>
+                          <p className="text-[10px] text-purple-700 ml-6 leading-relaxed">
+                            30+ PDF tools, Background remover, Image resizer, Typing center, Print service, Chat AI
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl">
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div className="p-2 rounded-xl bg-white border border-slate-100">
+                            <p className="text-xl font-black text-blue-600">3</p>
+                            <p className="text-[9px] text-slate-500 font-bold uppercase">Branches</p>
+                          </div>
+                          <div className="p-2 rounded-xl bg-white border border-slate-100">
+                            <p className="text-xl font-black text-emerald-600">50K+</p>
+                            <p className="text-[9px] text-slate-500 font-bold uppercase">Customers</p>
+                          </div>
+                          <div className="p-2 rounded-xl bg-white border border-slate-100">
+                            <p className="text-xl font-black text-purple-600">100%</p>
+                            <p className="text-[9px] text-slate-500 font-bold uppercase">Satisfaction</p>
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-slate-400 text-center mt-3 font-medium">
+                          Serving Haryana since 2019 • Jind • Narnaund • Uchana
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 <div className="relative" style={{ perspective: "1200px" }}>
                   <button

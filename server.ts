@@ -758,7 +758,7 @@ async function startServer() {
       return msgs;
     };
 
-    // Helper to send text via SSE stream with natural typing delay
+    // Helper to send text via SSE stream
     const sendSSEStream = (text: string) => {
       if (!res.headersSent) {
         res.setHeader('Content-Type', 'text/event-stream');
@@ -768,10 +768,7 @@ async function startServer() {
       res.write(`data: ${JSON.stringify({ text })}\n\n`);
     };
 
-    // Add small delay to simulate natural typing speed (~30-50ms per chunk)
-    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-    // Try Groq Streaming
+    // Try Groq Streaming - no artificial delays to prevent 504 timeout
     if (isGroqCandidate) {
       try {
         const stream = await callGroqStreamWithFallback(model || "openai/gpt-oss-120b", getGroqMessages());
@@ -783,6 +780,7 @@ async function startServer() {
         }
 
         let insideThink = false;
+        let chunkCount = 0;
         for await (const chunk of stream) {
           const delta = chunk.choices[0]?.delta?.content || "";
           if (delta) {
@@ -790,9 +788,13 @@ async function startServer() {
             if (delta.includes("think")) insideThink = true;
             if (!insideThink) {
               res.write(`data: ${JSON.stringify({ text: delta })}\n\n`);
-              await sleep(25 + Math.random() * 35); // 25-60ms delay for natural feel
             }
             if (delta.includes("think")) insideThink = false;
+          }
+          // Send keep-alive comment every 50 chunks to prevent Render 30s timeout
+          chunkCount++;
+          if (chunkCount % 50 === 0) {
+            res.write(': keep-alive\n\n');
           }
         }
         res.write('data: [DONE]\n\n');

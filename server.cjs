@@ -647,7 +647,6 @@ ${text.substring(0, 8e3)}`;
 
 `);
     };
-    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     if (isGroqCandidate) {
       try {
         const stream = await callGroqStreamWithFallback(model || "openai/gpt-oss-120b", getGroqMessages());
@@ -657,6 +656,7 @@ ${text.substring(0, 8e3)}`;
           res.setHeader("Connection", "keep-alive");
         }
         let insideThink = false;
+        let chunkCount = 0;
         for await (const chunk of stream) {
           const delta = chunk.choices[0]?.delta?.content || "";
           if (delta) {
@@ -665,9 +665,12 @@ ${text.substring(0, 8e3)}`;
               res.write(`data: ${JSON.stringify({ text: delta })}
 
 `);
-              await sleep(25 + Math.random() * 35);
             }
             if (delta.includes("think")) insideThink = false;
+          }
+          chunkCount++;
+          if (chunkCount % 50 === 0) {
+            res.write(": keep-alive\n\n");
           }
         }
         res.write("data: [DONE]\n\n");
