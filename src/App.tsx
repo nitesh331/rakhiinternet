@@ -209,44 +209,86 @@ function AboutPage({ onBack, onChat, onContact }: { onBack: () => void; onChat: 
       className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 pt-20"
     >
       {/* Back Button & Header */}
-      <div className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-700">
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
+        className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-700"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <button
+            <motion.button
               onClick={onBack}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               className="flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 rounded-xl font-semibold text-sm transition-all"
             >
               <ChevronLeft className="w-4 h-4" />
               Back
-            </button>
-            <div className="flex-1 text-center">
+            </motion.button>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4, delay: 0.1 }}
+              className="flex-1 text-center"
+            >
               <h1 className="text-xl font-black text-slate-900 dark:text-white">About Rakhi Internet</h1>
-            </div>
+            </motion.div>
             <div className="w-20" />
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20"
+      >
         {/* Hero Section */}
-        <div className="text-center mb-16 md:mb-24">
-          <div className="inline-flex items-center gap-3 px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white mb-8 shadow-lg shadow-blue-500/25">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="text-center mb-16 md:mb-24"
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3, type: "spring", stiffness: 200 }}
+            className="inline-flex items-center gap-3 px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white mb-8 shadow-lg shadow-blue-500/25"
+          >
             <Globe className="w-6 h-6" />
             <span className="text-sm font-bold uppercase tracking-wider">Haryana's Digital Service Hub</span>
-          </div>
+          </motion.div>
           
-          <h2 className="text-4xl md:text-6xl font-black tracking-tight text-slate-900 dark:text-white mb-6 leading-tight">
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+            className="text-4xl md:text-6xl font-black tracking-tight text-slate-900 dark:text-white mb-6 leading-tight"
+          >
             Empowering <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">Digital India</span> at Grassroots
-          </h2>
+          </motion.h2>
           
-          <p className="text-lg md:text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed">
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.5 }}
+            className="text-lg md:text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed"
+          >
             Since 2019, Rakhi Internet has been bridging the digital divide across Haryana — delivering government services, 
             education counseling, international logistics, and AI-powered productivity tools from our three branches in Jind, Narnaund, and Uchana.
-          </p>
-        </div>
+          </motion.p>
+        </motion.div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-16 md:mb-20">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-16 md:mb-20"
+        >
           {[
             { value: "3", label: "Branches Across Haryana", icon: MapPin, color: "from-blue-500 to-indigo-600" },
             { value: "50K+", label: "Happy Customers Served", icon: Users, color: "from-emerald-500 to-teal-600" },
@@ -267,7 +309,7 @@ function AboutPage({ onBack, onChat, onContact }: { onBack: () => void; onChat: 
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 font-medium">{stat.label}</p>
             </motion.div>
           ))}
-        </div>
+        </motion.div>
 
         {/* Mission & Vision */}
         <div className="grid md:grid-cols-2 gap-8 mb-16 md:mb-20">
@@ -385,32 +427,38 @@ function AboutPage({ onBack, onChat, onContact }: { onBack: () => void; onChat: 
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
-            {BRANCH_EXPERTS.filter((_, i) => i < 3).map((branch, i) => (
-              <motion.div
-                key={branch.branch}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 * i, duration: 0.5 }}
-                className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-lg transition-all"
-              >
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-16 h-16 rounded-2xl bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${branch.image})` }} />
-                  <div>
-                    <h4 className="text-xl font-black text-slate-900 dark:text-white">{branch.branch}</h4>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">{branch.role}</p>
-                  </div>
-                </div>
-                <div className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
-                  <p className="flex items-center gap-2"><MapPin className="w-4 h-4 text-slate-400" /> {branch.whatsapp.replace('91', '+91 ').replace(/(\+91\s\d{5})(\d{5})/, '$1 $2')}</p>
-                </div>
-                <button
-                  onClick={() => onContact(branch.branch.toLowerCase().includes("jind") ? "jind" : branch.branch.toLowerCase().includes("narnaund") ? "narnaund" : "uchana")}
-                  className="mt-4 w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all"
+            {(() => {
+              const uniqueBranches = BRANCH_EXPERTS.reduce((acc, expert) => {
+                if (!acc.some(b => b.branch === expert.branch)) acc.push(expert);
+                return acc;
+              }, [] as typeof BRANCH_EXPERTS);
+              return uniqueBranches.slice(0, 3).map((branch, i) => (
+                <motion.div
+                  key={branch.branch}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 * i, duration: 0.5 }}
+                  className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-lg transition-all"
                 >
-                  Contact This Branch
-                </button>
-              </motion.div>
-            ))}
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-16 h-16 rounded-2xl bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${branch.image})` }} />
+                    <div>
+                      <h4 className="text-xl font-black text-slate-900 dark:text-white">{branch.branch}</h4>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">{branch.role}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
+                    <p className="flex items-center gap-2"><MapPin className="w-4 h-4 text-slate-400" /> {branch.whatsapp.replace('91', '+91 ').replace(/(\+91\s\d{5})(\d{5})/, '$1 $2')}</p>
+                  </div>
+                  <button
+                    onClick={() => onContact(branch.branch.toLowerCase().includes("jind") ? "jind" : branch.branch.toLowerCase().includes("narnaund") ? "narnaund" : "uchana")}
+                    className="mt-4 w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all"
+                  >
+                    Contact This Branch
+                  </button>
+                </motion.div>
+              ));
+            })()}
           </div>
         </div>
 
@@ -476,7 +524,7 @@ function AboutPage({ onBack, onChat, onContact }: { onBack: () => void; onChat: 
           <p>Jind • Narnaund • Uchana, Haryana</p>
           <p>Est. 2019 | Powered by Nitesh Verma & Team</p>
         </div>
-      </div>
+      </motion.div>
     </motion.div>
   );
 }
@@ -713,7 +761,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#fafafa] font-sans text-gray-900 selection:bg-blue-100">
       {/* 1. Navigation Bar */}
-      {currentView !== "chat-portal" && (
+      {currentView !== "chat-portal" && currentView !== "about" && (
         <nav
           className={`fixed top-0 w-full z-50 transition-all duration-300 ${scrolled || mobileMenuOpen ? "bg-white/95 backdrop-blur-xl border-b border-gray-200 py-3 shadow-sm" : "bg-transparent py-5"}`}
         >
@@ -2729,7 +2777,7 @@ export default function App() {
       )}
 
       {/* 5. Footer */}
-      {currentView !== "chat-portal" && (
+      {currentView !== "chat-portal" && currentView !== "about" && (
         <footer
           id="footer"
           className="bg-[#111] text-gray-300 py-16 border-t border-gray-800"
@@ -2989,7 +3037,7 @@ export default function App() {
         </footer>
       )}
 
-      {currentView !== "chat-portal" && (
+      {currentView !== "chat-portal" && currentView !== "about" && (
         <div className="fixed bottom-6 right-4 md:bottom-8 md:right-8 z-[999999] pointer-events-none flex flex-col items-end justify-end">
           <motion.div
             className="pointer-events-auto select-none flex flex-col items-end justify-end"
