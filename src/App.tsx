@@ -206,8 +206,53 @@ function AboutPage({ onBack, onChat, onContact }: { onBack: () => void; onChat: 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900"
+      className="min-h-screen relative overflow-hidden bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900"
     >
+      {/* Decorative Background Elements */}
+      <motion.div
+        className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-gradient-to-br from-blue-500/10 to-indigo-500/10 blur-3xl pointer-events-none"
+        animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0.7, 0.4] }}
+        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute -bottom-40 -left-40 w-72 h-72 rounded-full bg-gradient-to-br from-emerald-500/10 to-teal-500/10 blur-3xl pointer-events-none"
+        animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
+        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+      />
+      <motion.div
+        className="absolute top-1/3 left-1/4 w-48 h-48 rounded-full bg-gradient-to-br from-purple-500/8 to-fuchsia-500/8 blur-2xl pointer-events-none"
+        animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
+        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute bottom-1/3 right-1/4 w-36 h-36 rounded-full bg-gradient-to-br from-cyan-500/8 to-blue-500/8 blur-2xl pointer-events-none"
+        animate={{ x: [0, -25, 0], y: [0, 25, 0] }}
+        transition={{ duration: 15, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+      />
+      {/* Floating geometric shapes */}
+      {[0, 1, 2, 3, 4].map((i) => (
+        <motion.div
+          key={i}
+          className="absolute pointer-events-none"
+          style={{
+            top: `${15 + i * 18}%`,
+            left: `${5 + (i % 3) * 30}%`,
+            width: `${12 + i * 4}px`,
+            height: `${12 + i * 4}px`,
+            borderRadius: i % 2 === 0 ? '50%' : '4px',
+            background: `linear-gradient(135deg, ${['rgba(59,130,246,0.08)', 'rgba(139,92,246,0.08)', 'rgba(16,185,129,0.08)', 'rgba(20,184,166,0.08)', 'rgba(245,158,11,0.08)'][i]})`,
+            transform: i % 2 === 0 ? 'rotate(0deg)' : 'rotate(45deg)',
+          }}
+          animate={{
+            y: [0, -15, 0],
+            x: [0, 10, 0],
+            rotate: i % 2 === 0 ? [0, 180, 360] : [0, -180, -360],
+            scale: [1, 1.2, 1],
+          }}
+          transition={{ duration: 12 + i * 2, repeat: Infinity, ease: "easeInOut", delay: i * 0.8 }}
+        />
+      ))}
+
       {/* Back Button & Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -243,20 +288,25 @@ function AboutPage({ onBack, onChat, onContact }: { onBack: () => void; onChat: 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20"
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20 relative z-10"
       >
         {/* Hero Section */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="text-center mb-16 md:mb-24"
+          className="text-center mb-16 md:mb-24 relative"
         >
+          {/* Decorative accent lines */}
+          <div className="absolute top-1/2 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-500/20 to-transparent -translate-y-1/2" />
+          <div className="absolute top-1/2 left-20 w-8 h-px bg-gradient-to-r from-blue-500 to-indigo-500 -translate-y-1/2" />
+          <div className="absolute top-1/2 right-20 w-8 h-px bg-gradient-to-r from-indigo-500 to-blue-500 -translate-y-1/2" />
+          
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3, type: "spring", stiffness: 200 }}
-            className="inline-flex items-center gap-3 px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white mb-8 shadow-lg shadow-blue-500/25"
+            className="inline-flex items-center gap-3 px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-600 text-white mb-8 shadow-lg shadow-blue-500/25 border border-white/10"
           >
             <Globe className="w-6 h-6" />
             <span className="text-sm font-bold uppercase tracking-wider">Haryana's Digital Service Hub</span>
@@ -290,76 +340,116 @@ function AboutPage({ onBack, onChat, onContact }: { onBack: () => void; onChat: 
           className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-16 md:mb-20"
         >
           {[
-            { value: "3", label: "Branches Across Haryana", icon: MapPin, color: "from-blue-500 to-indigo-600" },
-            { value: "50K+", label: "Happy Customers Served", icon: Users, color: "from-emerald-500 to-teal-600" },
-            { value: "100+", label: "Government Services", icon: ShieldCheck, color: "from-purple-500 to-fuchsia-600" },
-            { value: "24/7", label: "Digital Access Anytime", icon: Clock, color: "from-amber-500 to-orange-600" },
+            { value: "3", label: "Branches Across Haryana", icon: MapPin, color: "from-blue-500 to-indigo-600", iconColor: "text-blue-600" },
+            { value: "50K+", label: "Happy Customers Served", icon: Users, color: "from-emerald-500 to-teal-600", iconColor: "text-emerald-600" },
+            { value: "100+", label: "Government Services", icon: ShieldCheck, color: "from-purple-500 to-fuchsia-600", iconColor: "text-purple-600" },
+            { value: "24/7", label: "Digital Access Anytime", icon: Clock, color: "from-amber-500 to-orange-600", iconColor: "text-amber-600" },
           ].map((stat, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 * (i + 1), duration: 0.5 }}
-              className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-lg transition-shadow"
+              initial={{ opacity: 0, y: 20, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ delay: 0.1 * (i + 1), duration: 0.5, type: "spring", stiffness: 200 }}
+              className="group relative bg-white dark:bg-slate-800/60 rounded-2xl p-6 border border-slate-200/50 dark:border-slate-700/50 shadow-sm hover:shadow-2xl transition-all duration-500 backdrop-blur-sm overflow-hidden"
             >
-              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center mb-4`}>
-                <stat.icon className="w-6 h-6 text-white" />
+              {/* Gradient border glow */}
+              <div className="absolute inset-0 bg-gradient-to-br from-transparent via-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" />
+              <div className="absolute inset-0 border-2 border-transparent rounded-2xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 -z-10 group-hover:from-blue-500/40 group-hover:to-indigo-500/40 transition-all duration-500" />
+              
+              <div className={`relative w-14 h-14 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20`}>
+                <stat.icon className="w-7 h-7 text-white" />
+                <motion.div
+                  className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/20 to-transparent"
+                  animate={{ opacity: [0.3, 1, 0.3] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                />
               </div>
-              <p className="text-3xl font-black text-slate-900 dark:text-white">{stat.value}</p>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 font-medium">{stat.label}</p>
+              <p className="text-3xl font-black text-slate-900 dark:text-white mb-1">{stat.value}</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">{stat.label}</p>
             </motion.div>
           ))}
         </motion.div>
 
         {/* Mission & Vision */}
-        <div className="grid md:grid-cols-2 gap-8 mb-16 md:mb-20">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+          className="grid md:grid-cols-2 gap-8 mb-16 md:mb-20"
+        >
           <motion.div
-            initial={{ opacity: 0, x: -20 }}
+            initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-            className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-200 dark:border-slate-700 shadow-sm"
+            transition={{ duration: 0.6, type: "spring", stiffness: 100 }}
+            className="group relative bg-white dark:bg-slate-800/60 rounded-3xl p-8 border border-slate-200/50 dark:border-slate-700/50 shadow-sm hover:shadow-2xl transition-all duration-500 backdrop-blur-sm overflow-hidden"
           >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                <BookOpen className="w-6 h-6 text-white" />
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl" />
+            <div className="absolute inset-0 border border-transparent rounded-3xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 -z-10 group-hover:from-blue-500/40 group-hover:to-indigo-500/40 transition-all duration-500" />
+            
+            <div className="relative flex items-center gap-3 mb-4">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30 relative z-10">
+                <BookOpen className="w-7 h-7 text-white" />
+                <motion.div
+                  className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/20 to-transparent"
+                  animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.1, 1] }}
+                  transition={{ duration: 3, repeat: Infinity }}
+                />
               </div>
               <h3 className="text-2xl font-black text-slate-900 dark:text-white">Our Mission</h3>
             </div>
-            <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-lg">
+            <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-lg relative z-10">
               To make every government service, educational opportunity, and digital tool accessible to every citizen of Haryana — 
               regardless of their technical expertise or location. We eliminate bureaucracy through technology.
             </p>
           </motion.div>
 
           <motion.div
-            initial={{ opacity: 0, x: 20 }}
+            initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-            className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-200 dark:border-slate-700 shadow-sm"
+            transition={{ duration: 0.6, type: "spring", stiffness: 100 }}
+            className="group relative bg-white dark:bg-slate-800/60 rounded-3xl p-8 border border-slate-200/50 dark:border-slate-700/50 shadow-sm hover:shadow-2xl transition-all duration-500 backdrop-blur-sm overflow-hidden"
           >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
-                <Award className="w-6 h-6 text-white" />
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl" />
+            <div className="absolute inset-0 border border-transparent rounded-3xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 -z-10 group-hover:from-emerald-500/40 group-hover:to-teal-500/40 transition-all duration-500" />
+            
+            <div className="relative flex items-center gap-3 mb-4">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30 relative z-10">
+                <Award className="w-7 h-7 text-white" />
+                <motion.div
+                  className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/20 to-transparent"
+                  animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.1, 1] }}
+                  transition={{ duration: 3, repeat: Infinity }}
+                />
               </div>
               <h3 className="text-2xl font-black text-slate-900 dark:text-white">Our Vision</h3>
             </div>
-            <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-lg">
+            <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-lg relative z-10">
               A digitally empowered Haryana where every village has access to world-class services — from Aadhaar updates to university admissions, 
               from international courier to AI-powered productivity — all at their nearest Rakhi Internet center.
             </p>
           </motion.div>
-        </div>
+        </motion.div>
 
         {/* Services Overview */}
-        <div className="mb-16 md:mb-20">
-          <div className="text-center mb-12">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.5 }}
+          className="mb-16 md:mb-20"
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="text-center mb-12"
+          >
             <h3 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white mb-4">
               Everything You Need, <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Under One Roof</span>
             </h3>
             <p className="text-slate-600 dark:text-slate-400 text-lg max-w-2xl mx-auto">
               We've curated a complete ecosystem of digital services so you never need to visit multiple offices or websites.
             </p>
-          </div>
+          </motion.div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
@@ -368,63 +458,82 @@ function AboutPage({ onBack, onChat, onContact }: { onBack: () => void; onChat: 
                 desc: "Aadhaar, PAN, Passport, Voter ID, Schemes, Bill Pay, Banking, Insurance, Certificates",
                 icon: ShieldCheck,
                 color: "from-blue-500 to-indigo-600",
-                bg: "bg-blue-50 dark:bg-blue-900/20",
-                border: "border-blue-100 dark:border-blue-900",
-                text: "text-blue-700 dark:text-blue-300",
+                glowColor: "rgba(59,130,246,0.3)",
+                bg: "bg-white dark:bg-slate-800/60",
+                border: "border-slate-200/50 dark:border-slate-700/50",
               },
               {
                 title: "University Admissions",
                 desc: "KUK, MDU, CDLU, GJU, HAU, B.Ed, Distance CDOE, Career Guidance, Counseling",
                 icon: GraduationCap,
                 color: "from-emerald-500 to-teal-600",
-                bg: "bg-emerald-50 dark:bg-emerald-900/20",
-                border: "border-emerald-100 dark:border-emerald-900",
-                text: "text-emerald-700 dark:text-emerald-300",
+                glowColor: "rgba(16,185,129,0.3)",
+                bg: "bg-white dark:bg-slate-800/60",
+                border: "border-slate-200/50 dark:border-slate-700/50",
               },
               {
                 title: "International Courier",
                 desc: "DHL, FedEx, Aramex, DTDC, Delhivery — Door pickup, Live tracking, Best rates",
                 icon: Plane,
                 color: "from-cyan-500 to-blue-600",
-                bg: "bg-cyan-50 dark:bg-cyan-900/20",
-                border: "border-cyan-100 dark:border-cyan-900",
-                text: "text-cyan-700 dark:text-cyan-300",
+                glowColor: "rgba(6,182,212,0.3)",
+                bg: "bg-white dark:bg-slate-800/60",
+                border: "border-slate-200/50 dark:border-slate-700/50",
               },
               {
                 title: "AI-Powered Tools",
                 desc: "30+ PDF tools, Background remover, Image resizer, Typing center, Print service, Chat AI",
                 icon: Bot,
                 color: "from-purple-500 to-fuchsia-600",
-                bg: "bg-purple-50 dark:bg-purple-900/20",
-                border: "border-purple-100 dark:border-purple-900",
-                text: "text-purple-700 dark:text-purple-300",
+                glowColor: "rgba(168,85,247,0.3)",
+                bg: "bg-white dark:bg-slate-800/60",
+                border: "border-slate-200/50 dark:border-slate-700/50",
               },
             ].map((service, i) => (
               <motion.div
                 key={i}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 * i, duration: 0.5 }}
-                className={`group relative overflow-hidden rounded-2xl p-6 border transition-all hover:shadow-xl ${service.bg} ${service.border}`}
+                initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ delay: 0.1 * i, duration: 0.5, type: "spring", stiffness: 150 }}
+                className={`group relative ${service.bg} rounded-2xl p-6 border ${service.border} shadow-sm hover:shadow-2xl transition-all duration-500 backdrop-blur-sm overflow-hidden`}
               >
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${service.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-                  <service.icon className="w-6 h-6 text-white" />
+                {/* Gradient glow background */}
+                <div className="absolute inset-0 bg-gradient-to-br from-transparent via-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" />
+                <div className="absolute inset-0 border-2 border-transparent rounded-2xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 -z-10 group-hover:from-blue-500/40 group-hover:to-indigo-500/40 transition-all duration-500" />
+                
+                <div className="relative w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-4 shadow-lg shadow-blue-500/30 group-hover:scale-110 transition-transform duration-300">
+                  <service.icon className="w-7 h-7 text-white" />
+                  <motion.div
+                    className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/20 to-transparent"
+                    animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.1, 1] }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  />
                 </div>
                 <h4 className="text-xl font-black text-slate-900 dark:text-white mb-2">{service.title}</h4>
-                <p className={`text-sm leading-relaxed ${service.text}`}>{service.desc}</p>
-                <div className="absolute bottom-0 right-0 w-24 h-24 bg-gradient-to-tr from-transparent to-white/50 dark:from-transparent dark:to-slate-800/50 group-hover:w-32 group-hover:h-32 transition-all duration-500" />
+                <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{service.desc}</p>
+                <div className="absolute bottom-0 right-0 w-28 h-28 bg-gradient-to-tr from-transparent to-blue-500/10 dark:from-transparent dark:to-blue-500/10 group-hover:w-36 group-hover:h-36 transition-all duration-500 rounded-bl-2xl" />
               </motion.div>
             ))}
           </div>
-        </div>
+        </motion.div>
 
         {/* Branches */}
-        <div className="mb-16 md:mb-20">
-          <div className="text-center mb-12">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.6 }}
+          className="mb-16 md:mb-20"
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="text-center mb-12"
+          >
             <h3 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white mb-4">
               Visit Us at Our <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Branches</span>
             </h3>
-          </div>
+          </motion.div>
 
           <div className="grid md:grid-cols-3 gap-6">
             {(() => {
@@ -435,95 +544,167 @@ function AboutPage({ onBack, onChat, onContact }: { onBack: () => void; onChat: 
               return uniqueBranches.slice(0, 3).map((branch, i) => (
                 <motion.div
                   key={branch.branch}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 * i, duration: 0.5 }}
-                  className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-lg transition-all"
+                  initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ delay: 0.1 * i, duration: 0.5, type: "spring", stiffness: 150 }}
+                  className="group relative bg-white dark:bg-slate-800/60 rounded-3xl p-6 border border-slate-200/50 dark:border-slate-700/50 shadow-sm hover:shadow-2xl transition-all duration-500 backdrop-blur-sm overflow-hidden"
                 >
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-16 h-16 rounded-2xl bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${branch.image})` }} />
-                    <div>
+                  {/* Gradient glow */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl" />
+                  <div className="absolute inset-0 border-2 border-transparent rounded-3xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 -z-10 group-hover:from-blue-500/40 group-hover:to-indigo-500/40 transition-all duration-500" />
+                  
+                  <div className="relative flex items-center gap-4 mb-4">
+                    <div className="w-18 h-18 rounded-2xl bg-cover bg-center bg-no-repeat relative shadow-lg shadow-slate-500/20" style={{ backgroundImage: `url(${branch.image})` }}>
+                      <motion.div
+                        className="absolute inset-0 rounded-2xl bg-gradient-to-t from-black/40 to-transparent"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.3 }}
+                      />
+                      <div className="absolute bottom-2 right-2">
+                        <motion.div
+                          className="w-6 h-6 rounded-full bg-emerald-500 border-2 border-white"
+                          animate={{ scale: [1, 1.2, 1], boxShadow: ["0 0 0 0 rgba(16,185,129,0.6)", "0 0 0 8 rgba(16,185,129,0)", "0 0 0 0 rgba(16,185,129,0.6)"] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                        />
+                      </div>
+                    </div>
+                    <div className="relative z-10">
                       <h4 className="text-xl font-black text-slate-900 dark:text-white">{branch.branch}</h4>
                       <p className="text-sm text-slate-500 dark:text-slate-400">{branch.role}</p>
                     </div>
                   </div>
-                  <div className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
+                  <div className="space-y-3 text-sm text-slate-600 dark:text-slate-400 mb-4 relative z-10">
                     <p className="flex items-center gap-2"><MapPin className="w-4 h-4 text-slate-400" /> {branch.whatsapp.replace('91', '+91 ').replace(/(\+91\s\d{5})(\d{5})/, '$1 $2')}</p>
                   </div>
                   <button
                     onClick={() => onContact(branch.branch.toLowerCase().includes("jind") ? "jind" : branch.branch.toLowerCase().includes("narnaund") ? "narnaund" : "uchana")}
-                    className="mt-4 w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all"
+                    className="relative z-10 mt-2 w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/30 group-hover:shadow-xl group-hover:shadow-blue-500/40"
                   >
                     Contact This Branch
+                    <ArrowRight className="w-4 h-4 inline ml-2 transition-transform group-hover:translate-x-1" />
                   </button>
                 </motion.div>
               ));
             })()}
           </div>
-        </div>
+        </motion.div>
 
         {/* Why Choose Us */}
-        <div className="mb-16 md:mb-20">
-          <div className="text-center mb-12">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.7 }}
+          className="mb-16 md:mb-20"
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="text-center mb-12"
+          >
             <h3 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white mb-4">
               Why <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Choose Us</span>
             </h3>
-          </div>
+          </motion.div>
 
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { title: "Government Authorized", desc: "Official CSC partner with direct portal access for all government services", icon: ShieldCheck, color: "text-blue-600" },
-              { title: "Expert Guidance", desc: "Trained counselors for admissions, courier logistics, and digital services", icon: Users, color: "text-emerald-600" },
-              { title: "Transparent Pricing", desc: "No hidden fees — government rates for CSC, competitive rates for courier", icon: DollarSign, color: "text-amber-600" },
-              { title: "AI-First Approach", desc: "Latest AI tools for PDF, images, typing, and productivity — free to use", icon: Bot, color: "text-purple-600" },
-              { title: "Local Presence", desc: "3 physical branches in Jind, Narnaund, Uchana — walk in anytime", icon: MapPin, color: "text-cyan-600" },
-              { title: "Customer First", desc: "50,000+ satisfied customers with 4.9/5 rating across all services", icon: Heart, color: "text-rose-600" },
+              { title: "Government Authorized", desc: "Official CSC partner with direct portal access for all government services", icon: ShieldCheck, color: "from-blue-500 to-indigo-600", iconColor: "text-blue-600" },
+              { title: "Expert Guidance", desc: "Trained counselors for admissions, courier logistics, and digital services", icon: Users, color: "from-emerald-500 to-teal-600", iconColor: "text-emerald-600" },
+              { title: "Transparent Pricing", desc: "No hidden fees — government rates for CSC, competitive rates for courier", icon: DollarSign, color: "from-amber-500 to-orange-600", iconColor: "text-amber-600" },
+              { title: "AI-First Approach", desc: "Latest AI tools for PDF, images, typing, and productivity — free to use", icon: Bot, color: "from-purple-500 to-fuchsia-600", iconColor: "text-purple-600" },
+              { title: "Local Presence", desc: "3 physical branches in Jind, Narnaund, Uchana — walk in anytime", icon: MapPin, color: "from-cyan-500 to-blue-600", iconColor: "text-cyan-600" },
+              { title: "Customer First", desc: "50,000+ satisfied customers with 4.9/5 rating across all services", icon: Heart, color: "from-rose-500 to-pink-600", iconColor: "text-rose-600" },
             ].map((reason, i) => (
               <motion.div
                 key={i}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.05 * i, duration: 0.4 }}
-                className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 text-center"
+                initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ delay: 0.08 * i, duration: 0.5, type: "spring", stiffness: 150 }}
+                className="group relative bg-white dark:bg-slate-800/60 rounded-2xl p-6 border border-slate-200/50 dark:border-slate-700/50 shadow-sm hover:shadow-2xl transition-all duration-500 backdrop-blur-sm overflow-hidden text-center"
               >
-                <div className={`w-14 h-14 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center mx-auto mb-4 ${reason.color}`}>
-                  <reason.icon className="w-7 h-7" />
+                {/* Gradient glow */}
+                <div className="absolute inset-0 bg-gradient-to-br from-transparent via-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" />
+                <div className="absolute inset-0 border-2 border-transparent rounded-2xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 -z-10 group-hover:from-blue-500/40 group-hover:to-indigo-500/40 transition-all duration-500" />
+                
+                <div className="relative w-16 h-16 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/30 group-hover:scale-110 transition-transform duration-300">
+                  <reason.icon className="w-8 h-8 text-white" />
+                  <motion.div
+                    className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/20 to-transparent"
+                    animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.1, 1] }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  />
                 </div>
                 <h4 className="text-lg font-black text-slate-900 dark:text-white mb-2">{reason.title}</h4>
-                <p className="text-sm text-slate-600 dark:text-slate-400">{reason.desc}</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{reason.desc}</p>
+                <div className="absolute bottom-0 right-0 w-24 h-24 bg-gradient-to-tr from-transparent to-blue-500/10 dark:from-transparent dark:to-blue-500/10 group-hover:w-32 group-hover:h-36 transition-all duration-500 rounded-bl-2xl" />
               </motion.div>
             ))}
           </div>
-        </div>
+        </motion.div>
 
         {/* CTA Section */}
-        <div className="rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-8 md:p-12 text-center text-white">
-          <h3 className="text-3xl md:text-4xl font-black mb-4">Ready to Experience Seamless Digital Services?</h3>
-          <p className="text-blue-100 text-lg mb-8 max-w-2xl mx-auto">
-            Visit your nearest Rakhi Internet branch or start a chat with our AI assistant for instant guidance.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button
-              onClick={onChat}
-              className="px-8 py-3 bg-white text-blue-600 font-black rounded-xl hover:bg-slate-100 transition-all shadow-lg"
-            >
-              <MessageSquare className="w-5 h-5 inline mr-2" /> Chat with AI Assistant
-            </button>
-            <button
-              onClick={onContact}
-              className="px-8 py-3 bg-white/10 border-2 border-white text-white font-black rounded-xl hover:bg-white/20 transition-all"
-            >
-              <Phone className="w-5 h-5 inline mr-2" /> Contact Us
-            </button>
+        <motion.div
+          initial={{ opacity: 0, y: 30, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.6, delay: 0.8, type: "spring", stiffness: 100 }}
+          className="relative rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-8 md:p-12 text-center text-white overflow-hidden"
+        >
+          {/* Decorative background elements */}
+          <motion.div
+            className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white/10 blur-2xl"
+            animate={{ x: [0, 30, 0], y: [0, -20, 0], scale: [1, 1.2, 1] }}
+            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div
+            className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-white/5 blur-2xl"
+            animate={{ x: [0, -25, 0], y: [0, 20, 0], scale: [1, 1.15, 1] }}
+            transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+          />
+          <motion.div
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-gradient-to-r from-transparent via-white/5 to-transparent rounded-3xl"
+            animate={{ opacity: [0.3, 1, 0.3] }}
+            transition={{ duration: 4, repeat: Infinity }}
+          />
+          
+          <div className="relative z-10">
+            <h3 className="text-3xl md:text-4xl font-black mb-4">Ready to Experience Seamless Digital Services?</h3>
+            <p className="text-blue-100 text-lg mb-8 max-w-2xl mx-auto">
+              Visit your nearest Rakhi Internet branch or start a chat with our AI assistant for instant guidance.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <motion.button
+                onClick={onChat}
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.97 }}
+                className="px-8 py-3 bg-white text-blue-600 font-black rounded-xl hover:bg-slate-100 transition-all shadow-lg shadow-white/20"
+              >
+                <MessageSquare className="w-5 h-5 inline mr-2" /> Chat with AI Assistant
+              </motion.button>
+              <motion.button
+                onClick={onContact}
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.97 }}
+                className="px-8 py-3 bg-white/10 border-2 border-white text-white font-black rounded-xl hover:bg-white/20 transition-all backdrop-blur-sm"
+              >
+                <Phone className="w-5 h-5 inline mr-2" /> Contact Us
+              </motion.button>
+            </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Footer Info */}
-        <div className="mt-16 text-center text-sm text-slate-500 dark:text-slate-400 space-y-2">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.9 }}
+          className="mt-16 text-center text-sm text-slate-500 dark:text-slate-400 space-y-2"
+        >
           <p className="font-medium">Rakhi Internet — Digital & CSC Service Solution</p>
           <p>Jind • Narnaund • Uchana, Haryana</p>
           <p>Est. 2019 | Powered by Nitesh Verma & Team</p>
-        </div>
+        </motion.div>
       </motion.div>
     </motion.div>
   );
