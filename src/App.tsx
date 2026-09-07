@@ -54,6 +54,15 @@ import {
   Scissors,
   Shirt,
   GraduationCap,
+  FileText,
+  Camera,
+  Download,
+  RotateCw,
+  Trash2,
+  Check,
+  AlertCircle,
+  Save,
+  Copy,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import ChatPortal from "./components/ChatPortal";
@@ -705,7 +714,627 @@ function AboutPage({ onBack, onChat, onContact }: { onBack: () => void; onChat: 
           <p>Jind • Narnaund • Uchana, Haryana</p>
           <p>Est. 2019 | Powered by Nitesh Verma & Team</p>
         </motion.div>
+</motion.div>
+    </motion.div>
+  );
+}
+
+// ──────────────────────────────────────────────
+// PDF MAKER COMPONENT - Production Level
+// ──────────────────────────────────────────────
+function PDFMaker({ onBack }: { onBack: () => void }) {
+  const [scans, setScans] = useState<string[]>([]);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const [processingStage, setProcessingStage] = useState<string>('');
+  
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Enhanced image processing for HD quality
+  const enhanceImage = (src: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = previewCanvasRef.current!;
+        const ctx = canvas.getContext('2d')!;
+        
+        // Calculate optimal dimensions (max 2000px for quality)
+        const maxDim = 2000;
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          const ratio = Math.min(maxDim / width, maxDim / height);
+          width *= ratio;
+          height *= ratio;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // High quality settings
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Apply enhancement filters
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const data = imageData.data;
+        
+        // Contrast & sharpness boost
+        const contrast = 1.15;
+        const brightness = 1.05;
+        
+        for (let i = 0; i < data.length; i += 4) {
+          data[i] = Math.min(255, data[i] * contrast + (brightness - 1) * 255);     // R
+          data[i + 1] = Math.min(255, data[i + 1] * contrast + (brightness - 1) * 255); // G
+          data[i + 2] = Math.min(255, data[i + 2] * contrast + (brightness - 1) * 255); // B
+        }
+        
+        ctx.putImageData(imageData, 0, 0);
+        
+        // Unsharp mask for extra clarity
+        const sharpened = ctx.getImageData(0, 0, width, height);
+        const sharpenData = sharpened.data;
+        const kernel = [0, -1, 0, -1, 5, -1, 0, -1, 0];
+        
+        for (let y = 1; y < height - 1; y++) {
+          for (let x = 1; x < width - 1; x++) {
+            let r = 0, g = 0, b = 0;
+            for (let ky = -1; ky <= 1; ky++) {
+              for (let kx = -1; kx <= 1; kx++) {
+                const idx = ((y + ky) * width + (x + kx)) * 4;
+                const k = kernel[(ky + 1) * 3 + (kx + 1)];
+                r += data[idx] * k;
+                g += data[idx + 1] * k;
+                b += data[idx + 2] * k;
+              }
+            }
+            const idx = (y * width + x) * 4;
+            sharpenData[idx] = Math.min(255, Math.max(0, r));
+            sharpenData[idx + 1] = Math.min(255, Math.max(0, g));
+            sharpenData[idx + 2] = Math.min(255, Math.max(0, b));
+          }
+        }
+        
+        ctx.putImageData(sharpened, 0, 0);
+        
+        resolve(canvas.toDataURL('image/jpeg', 0.95));
+      };
+      img.src = src;
+    });
+  };
+
+  // Auto-detect document edges (simple implementation)
+  const autoCrop = (src: string): Promise<string> => {
+    return new Promise((resolve) => {
+      // For production, you'd use OpenCV.js or similar
+      // This returns enhanced image as-is for now
+      enhanceImage(src).then(resolve);
+    });
+  };
+
+  const startCamera = async () => {
+    setError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          focusMode: 'continuous',
+        },
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      setIsCameraActive(true);
+    } catch (err) {
+      setError('Camera access denied. Please enable camera permissions.');
+      console.error(err);
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current?.srcObject) {
+      (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+      videoRef.current.srcObject = null;
+    }
+    setIsCameraActive(false);
+  };
+
+  const capturePhoto = async () => {
+    if (!videoRef.current) return;
+    
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(video, 0, 0);
+    
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+    
+    // Process image for HD quality
+    setProcessingStage('Enhancing image quality...');
+    const enhanced = await autoCrop(dataUrl);
+    
+    setScans(prev => [...prev, enhanced]);
+    setProcessingStage('');
+  };
+
+  const removeScan = (index: number) => {
+    setScans(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const reorderScans = (fromIndex: number, toIndex: number) => {
+    const newScans = [...scans];
+    const [removed] = newScans.splice(fromIndex, 1);
+    newScans.splice(toIndex, 0, removed);
+    setScans(newScans);
+  };
+
+  const generatePDF = async () => {
+    if (scans.length === 0) return;
+    
+    setIsProcessing(true);
+    setProcessingStage('Generating HD PDF...');
+    
+    try {
+      const { jsPDF } = await import('jspdf');
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: 'a4' });
+      
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 20;
+      const maxWidth = pageWidth - margin * 2;
+      const maxHeight = pageHeight - margin * 2;
+      
+      for (let i = 0; i < scans.length; i++) {
+        if (i > 0) pdf.addPage();
+        
+        const img = new Image();
+        img.src = scans[i];
+        await new Promise(r => { img.onload = r; });
+        
+        // Calculate fit
+        const imgRatio = img.width / img.height;
+        const pageRatio = maxWidth / maxHeight;
+        
+        let drawWidth, drawHeight;
+        if (imgRatio > pageRatio) {
+          drawWidth = maxWidth;
+          drawHeight = maxWidth / imgRatio;
+        } else {
+          drawHeight = maxHeight;
+          drawWidth = maxHeight * imgRatio;
+        }
+        
+        const x = (pageWidth - drawWidth) / 2;
+        const y = (pageHeight - drawHeight) / 2;
+        
+        pdf.addImage(scans[i], 'JPEG', x, y, drawWidth, drawHeight, undefined, 'FAST');
+        setProcessingStage(`Processing page ${i + 1} of ${scans.length}...`);
+      }
+      
+      const blob = pdf.output('blob');
+      setPdfBlob(blob);
+      setShowPreview(true);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to generate PDF. Please try again.');
+    } finally {
+      setIsProcessing(false);
+      setProcessingStage('');
+    }
+  };
+
+  const downloadPDF = () => {
+    if (!pdfBlob) return;
+    const url = URL.createObjectURL(pdfBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `scan-${Date.now()}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const printPDF = () => {
+    if (!pdfBlob) return;
+    const url = URL.createObjectURL(pdfBlob);
+    const printWindow = window.open(url, '_blank');
+    if (printWindow) {
+      printWindow.onload = () => {
+        printWindow.print();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      };
+    }
+  };
+
+  const openPreview = (index: number) => {
+    setPreviewIndex(index);
+    setShowPreview(true);
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900"
+    >
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-700"
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <motion.button
+              onClick={onBack}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 rounded-xl font-semibold text-sm transition-all"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Back
+            </motion.button>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex-1 text-center"
+            >
+              <h1 className="text-xl font-black text-slate-900 dark:text-white">PDF Maker</h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Scan • Enhance • Create PDF</p>
+            </motion.div>
+            <div className="w-20" />
+          </div>
+        </div>
       </motion.div>
+
+      {/* Error Banner */}
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mx-4 mt-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl flex items-center gap-3"
+        >
+          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+          <p className="text-sm text-red-700 dark:text-red-300 flex-1">{error}</p>
+          <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700">
+            <X className="w-4 h-4" />
+          </button>
+        </motion.div>
+      )}
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20">
+        {/* Camera Section */}
+        {!isCameraActive && scans.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: "spring", stiffness: 200 }}
+            className="text-center py-16 md:py-24"
+          >
+            <motion.div
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 mb-6 shadow-lg shadow-blue-500/30"
+            >
+              <Camera className="w-10 h-10 text-white" />
+            </motion.div>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white mb-3">
+              Create PDF from Documents
+            </h2>
+            <p className="text-slate-600 dark:text-slate-400 max-w-xl mx-auto mb-8">
+              Scan books, notes, documents or photos. Auto-enhance to HD quality. 
+              Generate professional PDFs ready for print or download.
+            </p>
+            <motion.button
+              onClick={startCamera}
+              whileHover={{ scale: 1.03, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              className="inline-flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 hover:from-blue-700 hover:to-indigo-700 transition-all"
+            >
+              <Camera className="w-5 h-5" /> Start Camera Scan
+            </motion.button>
+          </motion.div>
+        ) : (
+          <>
+            {/* Active Camera View */}
+            {isCameraActive && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="mb-6 rounded-2xl overflow-hidden bg-black shadow-2xl"
+              >
+                <div className="relative aspect-[4/3]">
+                  <video
+                    ref={videoRef}
+                    className="w-full h-full object-cover"
+                    playsInline
+                    autoPlay
+                    muted
+                  />
+                  {/* Corner guides for document alignment */}
+                  <div className="absolute inset-4 border-2 border-blue-500/50 rounded-xl pointer-events-none">
+                    <div className="absolute -top-2 -left-2 w-8 h-8 border-t-4 border-l-4 border-blue-500" />
+                    <div className="absolute -top-2 -right-2 w-8 h-8 border-t-4 border-r-4 border-blue-500" />
+                    <div className="absolute -bottom-2 -left-2 w-8 h-8 border-b-4 border-l-4 border-blue-500" />
+                    <div className="absolute -bottom-2 -right-2 w-8 h-8 border-b-4 border-r-4 border-blue-500" />
+                  </div>
+                </div>
+                <div className="p-4 bg-white dark:bg-slate-800 flex items-center justify-between">
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    Align document within corners. Tap capture when ready.
+                  </p>
+                  <motion.button
+                    onClick={stopCamera}
+                    whileTap={{ scale: 0.95 }}
+                    className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-600"
+                  >
+                    Cancel
+                  </motion.button>
+                </div>
+                <div className="p-4 bg-white dark:bg-slate-800">
+                  <motion.button
+                    onClick={capturePhoto}
+                    disabled={isProcessing}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 flex items-center justify-center gap-3 disabled:opacity-50"
+                  >
+                    <Camera className="w-6 h-6" />
+                    <span className="text-lg">Capture Page ({scans.length + 1})</span>
+                    {isProcessing && <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                  </motion.button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Scans Grid */}
+            {scans.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-blue-600" />
+                    Scanned Pages ({scans.length})
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    {scans.length > 1 && (
+                      <motion.button
+                        onClick={() => setIsCameraActive(true)}
+                        whileTap={{ scale: 0.95 }}
+                        className="px-3 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center gap-1.5 text-sm"
+                      >
+                        <Camera className="w-4 h-4" /> Add More
+                      </motion.button>
+                    )}
+                    <motion.button
+                      onClick={generatePDF}
+                      disabled={isProcessing}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 disabled:opacity-50"
+                    >
+                      {isProcessing ? (
+                        <>
+                          <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                          {processingStage || 'Generating...'}
+                        </>
+                      ) : (
+                        <>
+                          <FileText className="w-4 h-4 mr-2" />
+                          Create PDF ({scans.length})
+                        </>
+                      )}
+                    </motion.button>
+                  </div>
+                </div>
+
+                {/* Sortable grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                  {scans.map((scan, index) => (
+                    <motion.div
+                      key={index}
+                      layout
+                      drag="x"
+                      dragConstraints={{ left: 0, right: 0 }}
+                      className="group relative bg-white dark:bg-slate-800 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-xl transition-all"
+                    >
+                      <div className="relative aspect-[3/4] overflow-hidden">
+                        <img
+                          src={scan}
+                          alt={`Scan ${index + 1}`}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          onClick={() => openPreview(index)}
+                        />
+                        {/* Page number badge */}
+                        <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-black flex items-center justify-center shadow-lg">
+                          {index + 1}
+                        </div>
+                        {/* Delete button */}
+                        <motion.button
+                          onClick={(e) => { e.stopPropagation(); removeScan(index); }}
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500/90 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </motion.button>
+                      </div>
+                      <div className="p-3 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                            Page {index + 1}
+                          </span>
+                          <motion.button
+                            onClick={() => {
+                              if (index > 0) reorderScans(index, index - 1);
+                            }}
+                            disabled={index === 0}
+                            className="p-1 text-slate-400 hover:text-blue-600 disabled:opacity-30"
+                          >
+                            <RotateCw className="w-4 h-4 -rotate-90" />
+                          </motion.button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Processing Indicator */}
+            {isProcessing && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  className="bg-white dark:bg-slate-800 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl"
+                >
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"
+                  />
+                  <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">
+                    Creating Your PDF
+                  </h3>
+                  <p className="text-slate-600 dark:text-slate-400 mb-6">{processingStage}</p>
+                  <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
+                    <motion.div
+                      animate={{ width: [0, 100] }}
+                      transition={{ duration: 2, ease: "easeInOut" }}
+                      className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full"
+                    />
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+
+            {/* Success/Preview Modal */}
+            {showPreview && pdfBlob && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+                onClick={() => setShowPreview(false)}
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  className="bg-white dark:bg-slate-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl"
+                  onClick={e => e.stopPropagation()}
+                >
+                  {/* Modal Header */}
+                  <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+                    <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                      PDF Ready ({scans.length} pages)
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <motion.button
+                        onClick={() => setShowPreview(false)}
+                        whileTap={{ scale: 0.9 }}
+                        className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                      >
+                        <X className="w-5 h-5" />
+                      </motion.button>
+                    </div>
+                  </div>
+                  
+                  {/* Preview */}
+                  <div className="relative h-[60vh] bg-slate-100 dark:bg-slate-900 flex items-center justify-center">
+                    {scans.length > 1 ? (
+                      <>
+                        <motion.button
+                          onClick={() => setPreviewIndex(p => p === 0 ? scans.length - 1 : p - 1)}
+                          className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-300"
+                          whileTap={{ scale: 0.9 }}
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </motion.button>
+                        <div className="flex-1 flex items-center justify-center p-4">
+                          <img src={scans[previewIndex]} alt={`Page ${previewIndex + 1}`} className="max-w-full max-h-full object-contain shadow-xl" />
+                        </div>
+                        <motion.button
+                          onClick={() => setPreviewIndex(p => p === scans.length - 1 ? 0 : p + 1)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 dark:bg-slate-800/90 shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-300"
+                          whileTap={{ scale: 0.9 }}
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </motion.button>
+                      </>
+                    ) : (
+                      <img src={scans[0]} alt="Page 1" className="max-w-full max-h-full object-contain p-4" />
+                    )}
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-sm text-slate-500 dark:text-slate-400">
+                      Page {previewIndex + 1} of {scans.length}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="p-4 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row gap-3 justify-center">
+                    <motion.button
+                      onClick={downloadPDF}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex-1 sm:flex-none px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2"
+                    >
+                      <Download className="w-5 h-5" />
+                      Download PDF
+                    </motion.button>
+                    <motion.button
+                      onClick={printPDF}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex-1 sm:flex-none px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2"
+                    >
+                      <Printer className="w-5 h-5" />
+                      Print Now
+                    </motion.button>
+                    <motion.button
+                      onClick={() => setShowPreview(false)}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex-1 sm:flex-none px-6 py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center justify-center gap-2"
+                    >
+                      <Copy className="w-5 h-5" />
+                      Done
+                    </motion.button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </>
+        )}
+      </div>
     </motion.div>
   );
 }
@@ -742,6 +1371,7 @@ export default function App() {
     | "chat-portal"
     | "admin"
     | "about"
+    | "pdf-maker"
   >("home");
   const [courierPortalTab, setCourierPortalTab] = useState<
     "track" | "calculator"
@@ -1021,17 +1651,27 @@ export default function App() {
                   </button>
                   {servicesOpen && (
                     <div className="absolute top-full left-0 mt-2 w-64 bg-white/95 backdrop-blur-xl border border-gray-100 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] rounded-2xl flex flex-col py-2 z-50 animate-dropdown">
-                      <button
-                        onClick={() => {
-                          setCurrentView("print-service");
-                          window.scrollTo(0, 0);
-                          setServicesOpen(false);
-                        }}
-                        className="text-left px-4 py-2.5 text-xs text-gray-700 transition-all duration-300 hover:bg-purple-50/80 hover:text-purple-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative rounded-lg mx-1"
-                      >
-                        Document Print Service
-                      </button>
-                      <button
+<button
+                      onClick={() => {
+                        setCurrentView("print-service");
+                        window.scrollTo(0, 0);
+                        setServicesOpen(false);
+                      }}
+                      className="text-left px-4 py-2.5 text-xs text-gray-700 transition-all duration-300 hover:bg-purple-50/80 hover:text-purple-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative rounded-lg mx-1"
+                    >
+                      Document Print Service
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCurrentView("pdf-maker");
+                        window.scrollTo(0, 0);
+                        setServicesOpen(false);
+                      }}
+                      className="text-left px-4 py-2.5 text-xs text-gray-700 transition-all duration-300 hover:bg-indigo-50/80 hover:text-indigo-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative flex items-center gap-2 rounded-lg mx-1"
+                    >
+                      <FileText className="w-3.5 h-3.5" /> PDF Maker (Scan to PDF)
+                    </button>
+                    <button
                         onClick={() => {
                           setPhotoToolActiveTab("bg-remover");
                           setPhotoToolsModalOpen(true);
@@ -1368,6 +2008,28 @@ export default function App() {
                             </div>
                           </button>
 
+                          {/* PDF Maker (Scan to PDF) */}
+                          <button
+                            onClick={() => {
+                              setCurrentView("pdf-maker");
+                              setMobileMenuOpen(false);
+                              window.scrollTo(0, 0);
+                            }}
+                            className="w-full flex items-center gap-2.5 p-2.5 hover:bg-slate-50 border border-transparent hover:border-slate-100 rounded-xl transition-all text-left"
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                              <FileText className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <span className="text-[9px] text-indigo-600 font-extrabold uppercase tracking-wider block leading-none mb-0.5">
+                                AI Tools
+                              </span>
+                              <span className="text-xs font-black text-slate-700">
+                                PDF Maker (Scan to PDF)
+                              </span>
+                            </div>
+                          </button>
+
                           <div className="h-px bg-slate-100 my-1 mx-2"></div>
 
                           {/* CSC All-Type PDF Tools */}
@@ -1658,6 +2320,13 @@ export default function App() {
         />
       ) : currentView === "admin" ? (
         <AdminDashboard
+          onBack={() => {
+            setCurrentView("home");
+            window.scrollTo(0, 0);
+          }}
+        />
+      ) : currentView === "pdf-maker" ? (
+        <PDFMaker
           onBack={() => {
             setCurrentView("home");
             window.scrollTo(0, 0);
