@@ -396,6 +396,13 @@ async function startServer() {
       environment: process.env.NODE_ENV || "development"
     });
   });
+  app.get("/api/wake", (req, res) => {
+    res.status(200).json({
+      status: "awake",
+      message: "Server is awake",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  });
   app.post("/api/chat", async (req, res) => {
     try {
       const { message, history, model, image } = req.body;

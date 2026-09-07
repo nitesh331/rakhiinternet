@@ -491,6 +491,15 @@ async function startServer() {
     });
   });
 
+  // Wake-up endpoint for cold starts
+  app.get("/api/wake", (req, res) => {
+    res.status(200).json({ 
+      status: "awake", 
+      message: "Server is awake",
+      timestamp: new Date().toISOString()
+    });
+  });
+
   app.post("/api/chat", async (req, res) => {
     try {
       const { message, history, model, image } = req.body;

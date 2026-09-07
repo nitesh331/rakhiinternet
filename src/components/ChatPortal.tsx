@@ -14,31 +14,32 @@ import aiBotImage from '../assets/images/regenerated_image_1783931513099.png';
 
 const API_BASE = 'https://rakhiinternetbackend.onrender.com';
 
-async function retryFetch(url: string, options: RequestInit = {}, retries = 3, timeoutMs = 120000): Promise<Response> {
+async function retryFetch(url: string, options: RequestInit = {}, retries = 3, timeoutMs = 60000): Promise<Response> {
   let lastResponse: Response | null = null;
   for (let attempt = 0; attempt < retries; attempt++) {
-    // Add a timeout to the fetch (Render free plan can take time to wake up)
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const res = await fetch(url, { ...options, signal: controller.signal });
       clearTimeout(timer);
-      // If server is waking up (503/502/504), wait a bit and retry
       if (res.status === 503 || res.status === 502 || res.status === 504) {
         lastResponse = res;
-        await new Promise(r => setTimeout(r, 3000 + attempt * 2000));
+        const delay = Math.min(3000 * Math.pow(1.8, attempt), 15000);
+        console.log(`[Retry ${attempt + 1}/${retries}] Server warming up (${res.status}), waiting ${Math.round(delay/1000)}s...`);
+        await new Promise(r => setTimeout(r, delay));
         continue;
       }
       return res;
     } catch (err: any) {
       clearTimeout(timer);
       lastResponse = null;
-      // Network error - retry after delay (backend waking up)
-      await new Promise(r => setTimeout(r, 3000 + attempt * 2000));
+      const delay = Math.min(3000 * Math.pow(1.8, attempt), 15000);
+      console.log(`[Retry ${attempt + 1}/${retries}] Network error (waking up), waiting ${Math.round(delay/1000)}s...`);
+      await new Promise(r => setTimeout(r, delay));
     }
   }
   if (lastResponse) return lastResponse;
-  throw new Error('Network request failed after retries');
+  throw new Error('Network request failed after retries - server may be down');
 }
 
 interface ChatImage {
@@ -136,17 +137,23 @@ export default function ChatPortal({ onBack }: { onBack: () => void }) {
 
   const [isListening, setIsListening] = useState(false);
   const [isSpeechSupported, setIsSpeechSupported] = useState(true);
+  const [isWakingUp, setIsWakingUp] = useState(false);
   const recognitionRef = useRef<any>(null);
 
   
   useEffect(() => {
+    // Pre-warm the server to reduce cold start latency
+    retryFetch(`${API_BASE}/api/wake`)
+      .then(res => res.json())
+      .then(data => console.log('[Wake-up] Server status:', data))
+      .catch(() => {});
+    
     retryFetch(`${API_BASE}/api/ai-status`)
       .then(res => res.json())
       .then(data => {
         setAiStatus(data);
       })
       .catch(() => {
-        // Retry once after 3s for cold start
         setTimeout(() => {
           retryFetch(`${API_BASE}/api/ai-status`)
             .then(res => res.json())
@@ -434,6 +441,7 @@ export default function ChatPortal({ onBack }: { onBack: () => void }) {
     ];
     updateCurrentSession(newMessages);
     setIsLoading(true);
+    setIsWakingUp(false);
 
     try {
       const response = await retryFetch(`${API_BASE}/api/chat-stream`, {
@@ -450,6 +458,7 @@ export default function ChatPortal({ onBack }: { onBack: () => void }) {
 
       if (!response.ok) throw new Error('Network response was not ok');
       
+      setIsWakingUp(false);
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       if (!reader) throw new Error("No reader");
@@ -465,9 +474,7 @@ export default function ChatPortal({ onBack }: { onBack: () => void }) {
           if (isFirstChunk) {
             setIsLoading(false);
             isFirstChunk = false;
-            // Add the empty model message placeholder
             setMessages(prev => [...prev, { role: 'model', text: '' }]);
-            // Give React a tick to add it before we update it
           }
           const chunk = decoder.decode(value, { stream: true });
           const lines = chunk.split('\n');
@@ -497,7 +504,6 @@ export default function ChatPortal({ onBack }: { onBack: () => void }) {
         }
       }
       
-      // Update session once fully complete
       setMessages(prev => {
         setTimeout(() => updateCurrentSession(prev), 0);
         return prev;
@@ -505,6 +511,7 @@ export default function ChatPortal({ onBack }: { onBack: () => void }) {
 
     } catch (error) {
       console.error("Chat error:", error);
+      setIsWakingUp(false);
       setMessages(prev => {
         const updated = [...prev];
         if (updated[updated.length - 1].text === '') {
@@ -515,6 +522,7 @@ export default function ChatPortal({ onBack }: { onBack: () => void }) {
       });
     } finally {
       setIsLoading(false);
+      setIsWakingUp(false);
     }
   };
 
@@ -530,6 +538,7 @@ export default function ChatPortal({ onBack }: { onBack: () => void }) {
     ];
     updateCurrentSession(newMessages);
     setIsLoading(true);
+    setIsWakingUp(false);
 
     try {
       const response = await retryFetch(`${API_BASE}/api/chat-stream`, {
@@ -545,6 +554,7 @@ export default function ChatPortal({ onBack }: { onBack: () => void }) {
 
       if (!response.ok) throw new Error('Network response was not ok');
       
+      setIsWakingUp(false);
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       if (!reader) throw new Error("No reader");
@@ -560,9 +570,7 @@ export default function ChatPortal({ onBack }: { onBack: () => void }) {
           if (isFirstChunk) {
             setIsLoading(false);
             isFirstChunk = false;
-            // Add the empty model message placeholder
             setMessages(prev => [...prev, { role: 'model', text: '' }]);
-            // Give React a tick to add it before we update it
           }
           const chunk = decoder.decode(value, { stream: true });
           const lines = chunk.split('\n');
@@ -598,6 +606,7 @@ export default function ChatPortal({ onBack }: { onBack: () => void }) {
 
     } catch (error) {
       console.error("Chat error:", error);
+      setIsWakingUp(false);
       setMessages(prev => {
         const updated = [...prev];
         if (updated[updated.length - 1].text === '') {
@@ -608,6 +617,7 @@ export default function ChatPortal({ onBack }: { onBack: () => void }) {
       });
     } finally {
       setIsLoading(false);
+      setIsWakingUp(false);
     }
   };
 
@@ -836,7 +846,26 @@ export default function ChatPortal({ onBack }: { onBack: () => void }) {
                 </div>
               ))}
               
-              {isLoading && (
+              {isWakingUp && (
+                <div className="flex gap-3 max-w-[95%] md:max-w-3xl self-start">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 border border-amber-500 flex items-center justify-center shadow-md overflow-hidden p-0 animate-pulse relative">
+                    <motion.div
+                      animate={{ rotateY: [0, 360] }}
+                      transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                      className="w-full h-full flex items-center justify-center z-10 relative"
+                    >
+                      <img src={aiBotImage} alt="AI Waking Up" className="w-full h-full object-cover scale-[1.2]" />
+                    </motion.div>
+                  </div>
+                  <div className="px-5 py-4 rounded-3xl bg-white border border-amber-200 rounded-tl-none flex items-center gap-3 h-[52px] shadow-lg">
+                    <div className="flex items-center gap-2 text-amber-700">
+                      <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-sm font-medium">Waking up server... please wait</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {isLoading && !isWakingUp && (
                 <div className="flex gap-3 max-w-[95%] md:max-w-3xl self-start">
                   <div className="flex-shrink-0 w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 border border-blue-500 flex items-center justify-center shadow-md overflow-hidden p-0 animate-pulse relative">
                     <motion.div
