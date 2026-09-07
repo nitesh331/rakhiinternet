@@ -196,6 +196,290 @@ const BRANCH_EXPERTS = [
   },
 ];
 
+// ──────────────────────────────────────────────
+// ABOUT PAGE COMPONENT - Premium Design
+// ──────────────────────────────────────────────
+function AboutPage({ onBack, onChat, onContact }: { onBack: () => void; onChat: () => void; onContact: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900"
+    >
+      {/* Back Button & Header */}
+      <div className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 rounded-xl font-semibold text-sm transition-all"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Back
+            </button>
+            <div className="flex-1 text-center">
+              <h1 className="text-xl font-black text-slate-900 dark:text-white">About Rakhi Internet</h1>
+            </div>
+            <div className="w-20" />
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
+        {/* Hero Section */}
+        <div className="text-center mb-16 md:mb-24">
+          <div className="inline-flex items-center gap-3 px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white mb-8 shadow-lg shadow-blue-500/25">
+            <Globe className="w-6 h-6" />
+            <span className="text-sm font-bold uppercase tracking-wider">Haryana's Digital Service Hub</span>
+          </div>
+          
+          <h2 className="text-4xl md:text-6xl font-black tracking-tight text-slate-900 dark:text-white mb-6 leading-tight">
+            Empowering <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">Digital India</span> at Grassroots
+          </h2>
+          
+          <p className="text-lg md:text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed">
+            Since 2019, Rakhi Internet has been bridging the digital divide across Haryana — delivering government services, 
+            education counseling, international logistics, and AI-powered productivity tools from our three branches in Jind, Narnaund, and Uchana.
+          </p>
+        </div>
+
+        {/* Stats Row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-16 md:mb-20">
+          {[
+            { value: "3", label: "Branches Across Haryana", icon: MapPin, color: "from-blue-500 to-indigo-600" },
+            { value: "50K+", label: "Happy Customers Served", icon: Users, color: "from-emerald-500 to-teal-600" },
+            { value: "100+", label: "Government Services", icon: ShieldCheck, color: "from-purple-500 to-fuchsia-600" },
+            { value: "24/7", label: "Digital Access Anytime", icon: Clock, color: "from-amber-500 to-orange-600" },
+          ].map((stat, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 * (i + 1), duration: 0.5 }}
+              className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-lg transition-shadow"
+            >
+              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center mb-4`}>
+                <stat.icon className="w-6 h-6 text-white" />
+              </div>
+              <p className="text-3xl font-black text-slate-900 dark:text-white">{stat.value}</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 font-medium">{stat.label}</p>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Mission & Vision */}
+        <div className="grid md:grid-cols-2 gap-8 mb-16 md:mb-20">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5 }}
+            className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-200 dark:border-slate-700 shadow-sm"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                <BookOpen className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white">Our Mission</h3>
+            </div>
+            <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-lg">
+              To make every government service, educational opportunity, and digital tool accessible to every citizen of Haryana — 
+              regardless of their technical expertise or location. We eliminate bureaucracy through technology.
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5 }}
+            className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-200 dark:border-slate-700 shadow-sm"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                <Award className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white">Our Vision</h3>
+            </div>
+            <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-lg">
+              A digitally empowered Haryana where every village has access to world-class services — from Aadhaar updates to university admissions, 
+              from international courier to AI-powered productivity — all at their nearest Rakhi Internet center.
+            </p>
+          </motion.div>
+        </div>
+
+        {/* Services Overview */}
+        <div className="mb-16 md:mb-20">
+          <div className="text-center mb-12">
+            <h3 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white mb-4">
+              Everything You Need, <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Under One Roof</span>
+            </h3>
+            <p className="text-slate-600 dark:text-slate-400 text-lg max-w-2xl mx-auto">
+              We've curated a complete ecosystem of digital services so you never need to visit multiple offices or websites.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              {
+                title: "CSC & Government Services",
+                desc: "Aadhaar, PAN, Passport, Voter ID, Schemes, Bill Pay, Banking, Insurance, Certificates",
+                icon: ShieldCheck,
+                color: "from-blue-500 to-indigo-600",
+                bg: "bg-blue-50 dark:bg-blue-900/20",
+                border: "border-blue-100 dark:border-blue-900",
+                text: "text-blue-700 dark:text-blue-300",
+              },
+              {
+                title: "University Admissions",
+                desc: "KUK, MDU, CDLU, GJU, HAU, B.Ed, Distance CDOE, Career Guidance, Counseling",
+                icon: GraduationCap,
+                color: "from-emerald-500 to-teal-600",
+                bg: "bg-emerald-50 dark:bg-emerald-900/20",
+                border: "border-emerald-100 dark:border-emerald-900",
+                text: "text-emerald-700 dark:text-emerald-300",
+              },
+              {
+                title: "International Courier",
+                desc: "DHL, FedEx, Aramex, DTDC, Delhivery — Door pickup, Live tracking, Best rates",
+                icon: Plane,
+                color: "from-cyan-500 to-blue-600",
+                bg: "bg-cyan-50 dark:bg-cyan-900/20",
+                border: "border-cyan-100 dark:border-cyan-900",
+                text: "text-cyan-700 dark:text-cyan-300",
+              },
+              {
+                title: "AI-Powered Tools",
+                desc: "30+ PDF tools, Background remover, Image resizer, Typing center, Print service, Chat AI",
+                icon: Bot,
+                color: "from-purple-500 to-fuchsia-600",
+                bg: "bg-purple-50 dark:bg-purple-900/20",
+                border: "border-purple-100 dark:border-purple-900",
+                text: "text-purple-700 dark:text-purple-300",
+              },
+            ].map((service, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 * i, duration: 0.5 }}
+                className={`group relative overflow-hidden rounded-2xl p-6 border transition-all hover:shadow-xl ${service.bg} ${service.border}`}
+              >
+                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${service.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                  <service.icon className="w-6 h-6 text-white" />
+                </div>
+                <h4 className="text-xl font-black text-slate-900 dark:text-white mb-2">{service.title}</h4>
+                <p className={`text-sm leading-relaxed ${service.text}`}>{service.desc}</p>
+                <div className="absolute bottom-0 right-0 w-24 h-24 bg-gradient-to-tr from-transparent to-white/50 dark:from-transparent dark:to-slate-800/50 group-hover:w-32 group-hover:h-32 transition-all duration-500" />
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* Branches */}
+        <div className="mb-16 md:mb-20">
+          <div className="text-center mb-12">
+            <h3 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white mb-4">
+              Visit Us at Our <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Branches</span>
+            </h3>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {BRANCH_EXPERTS.filter((_, i) => i < 3).map((branch, i) => (
+              <motion.div
+                key={branch.branch}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 * i, duration: 0.5 }}
+                className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-lg transition-all"
+              >
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-16 h-16 rounded-2xl bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${branch.image})` }} />
+                  <div>
+                    <h4 className="text-xl font-black text-slate-900 dark:text-white">{branch.branch}</h4>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">{branch.role}</p>
+                  </div>
+                </div>
+                <div className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
+                  <p className="flex items-center gap-2"><MapPin className="w-4 h-4 text-slate-400" /> {branch.whatsapp.replace('91', '+91 ').replace(/(\+91\s\d{5})(\d{5})/, '$1 $2')}</p>
+                </div>
+                <button
+                  onClick={() => onContact(branch.branch.toLowerCase().includes("jind") ? "jind" : branch.branch.toLowerCase().includes("narnaund") ? "narnaund" : "uchana")}
+                  className="mt-4 w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all"
+                >
+                  Contact This Branch
+                </button>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* Why Choose Us */}
+        <div className="mb-16 md:mb-20">
+          <div className="text-center mb-12">
+            <h3 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white mb-4">
+              Why <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Choose Us</span>
+            </h3>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              { title: "Government Authorized", desc: "Official CSC partner with direct portal access for all government services", icon: ShieldCheck, color: "text-blue-600" },
+              { title: "Expert Guidance", desc: "Trained counselors for admissions, courier logistics, and digital services", icon: Users, color: "text-emerald-600" },
+              { title: "Transparent Pricing", desc: "No hidden fees — government rates for CSC, competitive rates for courier", icon: DollarSign, color: "text-amber-600" },
+              { title: "AI-First Approach", desc: "Latest AI tools for PDF, images, typing, and productivity — free to use", icon: Bot, color: "text-purple-600" },
+              { title: "Local Presence", desc: "3 physical branches in Jind, Narnaund, Uchana — walk in anytime", icon: MapPin, color: "text-cyan-600" },
+              { title: "Customer First", desc: "50,000+ satisfied customers with 4.9/5 rating across all services", icon: Heart, color: "text-rose-600" },
+            ].map((reason, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.05 * i, duration: 0.4 }}
+                className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 text-center"
+              >
+                <div className={`w-14 h-14 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center mx-auto mb-4 ${reason.color}`}>
+                  <reason.icon className="w-7 h-7" />
+                </div>
+                <h4 className="text-lg font-black text-slate-900 dark:text-white mb-2">{reason.title}</h4>
+                <p className="text-sm text-slate-600 dark:text-slate-400">{reason.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* CTA Section */}
+        <div className="rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-8 md:p-12 text-center text-white">
+          <h3 className="text-3xl md:text-4xl font-black mb-4">Ready to Experience Seamless Digital Services?</h3>
+          <p className="text-blue-100 text-lg mb-8 max-w-2xl mx-auto">
+            Visit your nearest Rakhi Internet branch or start a chat with our AI assistant for instant guidance.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={onChat}
+              className="px-8 py-3 bg-white text-blue-600 font-black rounded-xl hover:bg-slate-100 transition-all shadow-lg"
+            >
+              <MessageSquare className="w-5 h-5 inline mr-2" /> Chat with AI Assistant
+            </button>
+            <button
+              onClick={onContact}
+              className="px-8 py-3 bg-white/10 border-2 border-white text-white font-black rounded-xl hover:bg-white/20 transition-all"
+            >
+              <Phone className="w-5 h-5 inline mr-2" /> Contact Us
+            </button>
+          </div>
+        </div>
+
+        {/* Footer Info */}
+        <div className="mt-16 text-center text-sm text-slate-500 dark:text-slate-400 space-y-2">
+          <p className="font-medium">Rakhi Internet — Digital & CSC Service Solution</p>
+          <p>Jind • Narnaund • Uchana, Haryana</p>
+          <p>Est. 2019 | Powered by Nitesh Verma & Team</p>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 export default function App() {
   const robotConstraintsRef = useRef(null);
   const isDraggingRef = useRef(false);
@@ -206,7 +490,6 @@ export default function App() {
   const [servicesOpen, setServicesOpen] = useState(false);
   const [courierOpen, setCourierOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
-  const [aboutOpen, setAboutOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [pdfToolsModalOpen, setPdfToolsModalOpen] = useState(false);
@@ -228,6 +511,7 @@ export default function App() {
     | "print-service"
     | "chat-portal"
     | "admin"
+    | "about"
   >("home");
   const [courierPortalTab, setCourierPortalTab] = useState<
     "track" | "calculator"
@@ -382,7 +666,6 @@ export default function App() {
         setServicesOpen(false);
         setCourierOpen(false);
         setContactOpen(false);
-        setAboutOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -600,96 +883,13 @@ export default function App() {
                   Latest Links
                 </button>
 
-                {/* About Button - Premium Dropdown */}
-                <div className="relative" style={{ perspective: "1200px" }}>
-                  <button
-                    onClick={() => setAboutOpen(!aboutOpen)}
-                    className={`font-medium transition-colors text-sm flex items-center gap-1 py-2 ${scrolled ? "text-gray-600 hover:text-blue-600" : "text-gray-200 hover:text-white"}`}
-                  >
-                    About{" "}
-                    <ChevronDown className={`w-4 h-4 transition-transform ${aboutOpen ? "rotate-180" : ""}`} />
-                  </button>
-                  {aboutOpen && (
-                    <div className="absolute top-full left-0 mt-2 w-80 bg-white/95 backdrop-blur-xl border border-gray-100 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] rounded-2xl flex flex-col py-2 z-50 animate-dropdown">
-                      <div className="px-4 py-3 border-b border-slate-100">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                            <Globe className="w-4 h-4 text-white" />
-                          </div>
-                          <div>
-                            <p className="text-xs font-black text-slate-800">Rakhi Internet</p>
-                            <p className="text-[9px] text-slate-400 uppercase tracking-wider">Digital & CSC Service Hub</p>
-                          </div>
-                        </div>
-                        <p className="text-xs text-slate-600 leading-relaxed">
-                          Haryana's trusted digital service center providing government services, education counseling, courier solutions, and AI-powered tools under one roof.
-                        </p>
-                      </div>
-
-                      <div className="p-3 space-y-2">
-                        <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
-                          <div className="flex items-center gap-2 mb-1">
-                            <CheckCircle2 className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                            <span className="text-xs font-bold text-blue-800">CSC & Government Services</span>
-                          </div>
-                          <p className="text-[10px] text-blue-700 ml-6 leading-relaxed">
-                            Aadhaar, PAN, Voter ID, Passport, Schemes, Bill Payments, Banking, Insurance
-                          </p>
-                        </div>
-
-                        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3">
-                          <div className="flex items-center gap-2 mb-1">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                            <span className="text-xs font-bold text-emerald-800">University Admissions</span>
-                          </div>
-                          <p className="text-[10px] text-emerald-700 ml-6 leading-relaxed">
-                            KUK, MDU, CDLU, GJU, HAU, B.Ed, Distance Education, CDOE, Career Guidance
-                          </p>
-                        </div>
-
-                        <div className="bg-cyan-50 border border-cyan-100 rounded-xl p-3">
-                          <div className="flex items-center gap-2 mb-1">
-                            <CheckCircle2 className="w-4 h-4 text-cyan-600 flex-shrink-0" />
-                            <span className="text-xs font-bold text-cyan-800">International Courier</span>
-                          </div>
-                          <p className="text-[10px] text-cyan-700 ml-6 leading-relaxed">
-                            DHL, FedEx, Aramex, DTDC, Delhivery - Door pickup, Live tracking, Best rates
-                          </p>
-                        </div>
-
-                        <div className="bg-purple-50 border border-purple-100 rounded-xl p-3">
-                          <div className="flex items-center gap-2 mb-1">
-                            <CheckCircle2 className="w-4 h-4 text-purple-600 flex-shrink-0" />
-                            <span className="text-xs font-bold text-purple-800">AI-Powered Tools</span>
-                          </div>
-                          <p className="text-[10px] text-purple-700 ml-6 leading-relaxed">
-                            30+ PDF tools, Background remover, Image resizer, Typing center, Print service, Chat AI
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl">
-                        <div className="grid grid-cols-3 gap-2 text-center">
-                          <div className="p-2 rounded-xl bg-white border border-slate-100">
-                            <p className="text-xl font-black text-blue-600">3</p>
-                            <p className="text-[9px] text-slate-500 font-bold uppercase">Branches</p>
-                          </div>
-                          <div className="p-2 rounded-xl bg-white border border-slate-100">
-                            <p className="text-xl font-black text-emerald-600">50K+</p>
-                            <p className="text-[9px] text-slate-500 font-bold uppercase">Customers</p>
-                          </div>
-                          <div className="p-2 rounded-xl bg-white border border-slate-100">
-                            <p className="text-xl font-black text-purple-600">100%</p>
-                            <p className="text-[9px] text-slate-500 font-bold uppercase">Satisfaction</p>
-                          </div>
-                        </div>
-                        <p className="text-[10px] text-slate-400 text-center mt-3 font-medium">
-                          Serving Haryana since 2019 • Jind • Narnaund • Uchana
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                {/* About Button - Navigate to About Page */}
+                <button
+                  onClick={() => { setCurrentView("about"); window.scrollTo(0, 0); }}
+                  className={`font-medium transition-colors text-sm ${scrolled ? "text-gray-600 hover:text-blue-600" : "text-gray-200 hover:text-white"}`}
+                >
+                  About
+                </button>
 
                 <div className="relative" style={{ perspective: "1200px" }}>
                   <button
@@ -1231,6 +1431,20 @@ export default function App() {
           onBack={() => {
             setCurrentView("home");
             window.scrollTo(0, 0);
+          }}
+        />
+      ) : currentView === "about" ? (
+        <AboutPage
+          onBack={() => {
+            setCurrentView("home");
+            window.scrollTo(0, 0);
+          }}
+          onChat={() => {
+            setCurrentView("chat-portal");
+            window.scrollTo(0, 0);
+          }}
+          onContact={(branch) => {
+            openContactModal("", branch);
           }}
         />
       ) : (
