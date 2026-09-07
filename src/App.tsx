@@ -53,6 +53,7 @@ import {
   Bot,
   Scissors,
   Shirt,
+  GraduationCap,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import ChatPortal from "./components/ChatPortal";
