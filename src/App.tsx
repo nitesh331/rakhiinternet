@@ -203,6 +203,9 @@ export default function App() {
   const [mobileServicesOpen, setMobileServicesOpen] = useState(false);
   const [mobileCourierOpen, setMobileCourierOpen] = useState(false);
   const [mobileContactOpen, setMobileContactOpen] = useState(false);
+  const [servicesOpen, setServicesOpen] = useState(false);
+  const [courierOpen, setCourierOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [pdfToolsModalOpen, setPdfToolsModalOpen] = useState(false);
@@ -369,6 +372,21 @@ export default function App() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Close dropdowns on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const nav = target.closest('nav');
+      if (!nav) {
+        setServicesOpen(false);
+        setCourierOpen(false);
+        setContactOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   useEffect(() => {
     if (isSliderHovered || currentView !== "home") return;
 
@@ -478,84 +496,100 @@ export default function App() {
                 >
                   Home
                 </button>
-                <div className="relative group" style={{ perspective: "1200px" }}>
+                <div className="relative" style={{ perspective: "1200px" }}>
                   <button
+                    onClick={() => setServicesOpen(!servicesOpen)}
                     className={`font-medium transition-colors text-sm flex items-center gap-1 py-2 ${scrolled ? "text-gray-600 hover:text-blue-600" : "text-gray-200 hover:text-white"}`}
                   >
                     Services{" "}
-                    <ChevronDown className="w-4 h-4 transition-transform group-hover:rotate-180" />
+                    <ChevronDown className={`w-4 h-4 transition-transform ${servicesOpen ? "rotate-180" : ""}`} />
                   </button>
-                  <div className="absolute top-full left-0 mt-2 w-64 bg-white/95 backdrop-blur-xl border border-gray-100 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] rounded-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-500 flex flex-col py-2 z-50 origin-top-[50%] [-webkit-transform:rotateX(-25deg)_translateY(-15px)_scale(0.9)] group-hover:[-webkit-transform:rotateX(0deg)_translateY(0)_scale(1)] pointer-events-none group-hover:pointer-events-auto ease-[cubic-bezier(0.25,1.5,0.5,1)]">
-                    <button
-                      onClick={() => {
-                        setCurrentView("print-service");
-                        window.scrollTo(0, 0);
-                      }}
-                      className="text-left px-4 py-2.5 text-xs text-gray-700 transition-all duration-300 hover:bg-purple-50/80 hover:text-purple-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative rounded-lg mx-1"
-                    >
-                      Document Print Service
-                    </button>
-                    <button
-                      onClick={() => {
-                        setPhotoToolActiveTab("bg-remover");
-                        setPhotoToolsModalOpen(true);
-                      }}
-                      className="text-left px-4 py-2.5 text-xs text-gray-700 transition-all duration-300 hover:bg-blue-50/80 hover:text-blue-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative flex items-center gap-2 rounded-lg mx-1"
-                    >
-                      <Scissors className="w-3.5 h-3.5" /> Photo Background Remover
-                    </button>
-                    <button
-                      onClick={() => {
-                        setImageResizerModalOpen(true);
-                      }}
-                      className="text-left px-4 py-2.5 text-xs text-gray-700 transition-all duration-300 hover:bg-blue-50/80 hover:text-blue-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative flex items-center gap-2 rounded-lg mx-1"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" /> Image Resizer
-                    </button>
-                    <div className="h-px bg-gray-100 my-1 mx-2"></div>
-                    <button
-                      onClick={() => setPdfToolsModalOpen(true)}
-                      className="text-left px-4 py-2.5 text-xs text-gray-700 transition-all duration-300 hover:bg-blue-50/80 hover:text-blue-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative rounded-lg mx-1"
-                    >
-                      CSC All-Type PDF Tools
-                    </button>
-                    <button
-                      onClick={() => {
-                        setCurrentView("typing-center");
-                        window.scrollTo(0, 0);
-                      }}
-                      className="text-left px-4 py-2.5 text-xs text-gray-700 transition-all duration-300 hover:bg-emerald-50/80 hover:text-emerald-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative rounded-lg mx-1"
-                    >
-                      Hindi/English Typing Center
-                    </button>
-                  </div>
+                  {servicesOpen && (
+                    <div className="absolute top-full left-0 mt-2 w-64 bg-white/95 backdrop-blur-xl border border-gray-100 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] rounded-2xl flex flex-col py-2 z-50 animate-dropdown">
+                      <button
+                        onClick={() => {
+                          setCurrentView("print-service");
+                          window.scrollTo(0, 0);
+                          setServicesOpen(false);
+                        }}
+                        className="text-left px-4 py-2.5 text-xs text-gray-700 transition-all duration-300 hover:bg-purple-50/80 hover:text-purple-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative rounded-lg mx-1"
+                      >
+                        Document Print Service
+                      </button>
+                      <button
+                        onClick={() => {
+                          setPhotoToolActiveTab("bg-remover");
+                          setPhotoToolsModalOpen(true);
+                          setServicesOpen(false);
+                        }}
+                        className="text-left px-4 py-2.5 text-xs text-gray-700 transition-all duration-300 hover:bg-blue-50/80 hover:text-blue-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative flex items-center gap-2 rounded-lg mx-1"
+                      >
+                        <Scissors className="w-3.5 h-3.5" /> Photo Background Remover
+                      </button>
+                      <button
+                        onClick={() => {
+                          setImageResizerModalOpen(true);
+                          setServicesOpen(false);
+                        }}
+                        className="text-left px-4 py-2.5 text-xs text-gray-700 transition-all duration-300 hover:bg-blue-50/80 hover:text-blue-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative flex items-center gap-2 rounded-lg mx-1"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" /> Image Resizer
+                      </button>
+                      <div className="h-px bg-gray-100 my-1 mx-2"></div>
+                      <button
+                        onClick={() => {
+                          setPdfToolsModalOpen(true);
+                          setServicesOpen(false);
+                        }}
+                        className="text-left px-4 py-2.5 text-xs text-gray-700 transition-all duration-300 hover:bg-blue-50/80 hover:text-blue-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative rounded-lg mx-1"
+                      >
+                        CSC All-Type PDF Tools
+                      </button>
+                      <button
+                        onClick={() => {
+                          setCurrentView("typing-center");
+                          window.scrollTo(0, 0);
+                          setServicesOpen(false);
+                        }}
+                        className="text-left px-4 py-2.5 text-xs text-gray-700 transition-all duration-300 hover:bg-emerald-50/80 hover:text-emerald-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative rounded-lg mx-1"
+                      >
+                        Hindi/English Typing Center
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <div className="relative group" style={{ perspective: "1200px" }}>
+                <div className="relative" style={{ perspective: "1200px" }}>
                   <button
+                    onClick={() => setCourierOpen(!courierOpen)}
                     className={`font-medium transition-colors text-sm flex items-center gap-1 py-2 ${scrolled ? "text-gray-600 hover:text-blue-600" : "text-gray-200 hover:text-white"}`}
                   >
                     Courier{" "}
-                    <ChevronDown className="w-4 h-4 transition-transform group-hover:rotate-180" />
+                    <ChevronDown className={`w-4 h-4 transition-transform ${courierOpen ? "rotate-180" : ""}`} />
                   </button>
-                  <div className="absolute top-full left-0 mt-2 w-56 bg-white/95 backdrop-blur-xl border border-gray-100 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] rounded-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-500 flex flex-col py-2 z-50 origin-top-[50%] [-webkit-transform:rotateX(-25deg)_translateY(-15px)_scale(0.9)] group-hover:[-webkit-transform:rotateX(0deg)_translateY(0)_scale(1)] pointer-events-none group-hover:pointer-events-auto ease-[cubic-bezier(0.25,1.5,0.5,1)]">
-                    <button
-                      onClick={() => scrollTo("courier")}
-                      className="text-left px-4 py-2.5 text-sm text-gray-700 transition-all duration-300 hover:bg-blue-50/80 hover:text-blue-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative rounded-lg mx-1"
-                    >
-                      About Courier
-                    </button>
-                    <button
-                      onClick={() => {
-                        setCourierPortalTab("track");
-                        setCurrentView("courier-portal");
-                        window.scrollTo(0, 0);
-                      }}
-                      className="text-left px-4 py-2.5 text-sm text-gray-700 transition-all duration-300 hover:bg-blue-50/80 hover:text-blue-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative rounded-lg mx-1"
-                    >
-                      Courier Track
-                    </button>
-
-                  </div>
+                  {courierOpen && (
+                    <div className="absolute top-full left-0 mt-2 w-56 bg-white/95 backdrop-blur-xl border border-gray-100 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] rounded-2xl flex flex-col py-2 z-50 animate-dropdown">
+                      <button
+                        onClick={() => {
+                          scrollTo("courier");
+                          setCourierOpen(false);
+                        }}
+                        className="text-left px-4 py-2.5 text-sm text-gray-700 transition-all duration-300 hover:bg-blue-50/80 hover:text-blue-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative rounded-lg mx-1"
+                      >
+                        About Courier
+                      </button>
+                      <button
+                        onClick={() => {
+                          setCourierPortalTab("track");
+                          setCurrentView("courier-portal");
+                          window.scrollTo(0, 0);
+                          setCourierOpen(false);
+                        }}
+                        className="text-left px-4 py-2.5 text-sm text-gray-700 transition-all duration-300 hover:bg-blue-50/80 hover:text-blue-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative rounded-lg mx-1"
+                      >
+                        Courier Track
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={() => setLatestLinksOpen(true)}
@@ -564,85 +598,88 @@ export default function App() {
                   Latest Links
                 </button>
 
-                <div className="relative group" style={{ perspective: "1200px" }}>
+                <div className="relative" style={{ perspective: "1200px" }}>
                   <button
+                    onClick={() => setContactOpen(!contactOpen)}
                     className={`px-5 py-2.5 rounded-full font-black text-sm transition-all shadow-md ml-2 flex items-center gap-1.5 cursor-pointer ${scrolled ? "bg-black text-white hover:bg-slate-800" : "bg-white text-gray-950 hover:bg-slate-100"}`}
                   >
                     Contact Us{" "}
-                    <ChevronDown className="w-4 h-4 transition-transform group-hover:rotate-180" />
+                    <ChevronDown className={`w-4 h-4 transition-transform ${contactOpen ? "rotate-180" : ""}`} />
                   </button>
-                  <div className="absolute top-full right-0 mt-3 w-80 bg-white/95 backdrop-blur-xl border border-slate-100 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] rounded-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-500 flex flex-col p-3.5 z-50 origin-[calc(100%-40px)_top] [-webkit-transform:rotateX(-25deg)_rotateY(10deg)_translateY(-15px)_scale(0.9)] group-hover:[-webkit-transform:rotateX(0deg)_rotateY(0deg)_translateY(0)_scale(1)] pointer-events-none group-hover:pointer-events-auto ease-[cubic-bezier(0.25,1.5,0.5,1)]">
-                    <div className="px-2.5 pb-2.5 mb-2 border-b border-slate-100 text-left">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">
-                        Contact Desk
-                      </span>
-                      <p className="text-xs text-slate-800 font-extrabold">
-                        Choose Your Nearest Branch
-                      </p>
-                    </div>
+                  {contactOpen && (
+                    <div className="absolute top-full right-0 mt-3 w-80 bg-white/95 backdrop-blur-xl border border-slate-100 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] rounded-2xl flex flex-col p-3.5 z-50 animate-dropdown">
+                      <div className="px-2.5 pb-2.5 mb-2 border-b border-slate-100 text-left">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">
+                          Contact Desk
+                        </span>
+                        <p className="text-xs text-slate-800 font-extrabold">
+                          Choose Your Nearest Branch
+                        </p>
+                      </div>
 
-                    <button onClick={() => openContactModal("", "jind")}
-                      className="w-full flex items-center gap-3 text-left p-2.5 rounded-xl hover:bg-purple-50/50 transition-colors group/item cursor-pointer"
-                    >
-                      <div className="p-2 rounded-lg bg-purple-50 text-purple-600 group-hover/item:bg-purple-600 group-hover/item:text-white transition-colors">
-                        <MapPin className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-xs font-black text-slate-800 group-hover/item:text-purple-600 transition-colors">
-                          Jind Branch
-                        </p>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase">
-                          BHIWANI BYPASS, MAIN CHOWK, JIND, HARYANA 126102
-                        </p>
-                      </div>
-                      <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover/item:text-purple-500 group-hover/item:translate-x-1 transition-all" />
-                    </button>
+                      <button onClick={() => { openContactModal("", "jind"); setContactOpen(false); }}
+                        className="w-full flex items-center gap-3 text-left p-2.5 rounded-xl hover:bg-purple-50/50 transition-colors group/item cursor-pointer"
+                      >
+                        <div className="p-2 rounded-lg bg-purple-50 text-purple-600 group-hover/item:bg-purple-600 group-hover/item:text-white transition-colors">
+                          <MapPin className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs font-black text-slate-800 group-hover/item:text-purple-600 transition-colors">
+                            Jind Branch
+                          </p>
+                          <p className="text-[9px] text-slate-400 font-bold uppercase">
+                            BHIWANI BYPASS, MAIN CHOWK, JIND, HARYANA 126102
+                          </p>
+                        </div>
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover/item:text-purple-500 group-hover/item:translate-x-1 transition-all" />
+                      </button>
 
-                    <button onClick={() => openContactModal("", "narnaund")}
-                      className="w-full flex items-center gap-3 text-left p-2.5 rounded-xl hover:bg-blue-50/50 transition-colors group/item cursor-pointer mt-1"
-                    >
-                      <div className="p-2 rounded-lg bg-blue-50 text-blue-600 group-hover/item:bg-blue-600 group-hover/item:text-white transition-colors">
-                        <MapPin className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-xs font-black text-slate-800 group-hover/item:text-blue-600 transition-colors">
-                          Narnaund Branch
-                        </p>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase">
-                          BUS STAND, FRONT OF POLICE STATION, OLD, NARNAUND, HARYANA 125039
-                        </p>
-                      </div>
-                      <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover/item:text-blue-500 group-hover/item:translate-x-1 transition-all" />
-                    </button>
+                      <button onClick={() => { openContactModal("", "narnaund"); setContactOpen(false); }}
+                        className="w-full flex items-center gap-3 text-left p-2.5 rounded-xl hover:bg-blue-50/50 transition-colors group/item cursor-pointer mt-1"
+                      >
+                        <div className="p-2 rounded-lg bg-blue-50 text-blue-600 group-hover/item:bg-blue-600 group-hover/item:text-white transition-colors">
+                          <MapPin className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs font-black text-slate-800 group-hover/item:text-blue-600 transition-colors">
+                            Narnaund Branch
+                          </p>
+                          <p className="text-[9px] text-slate-400 font-bold uppercase">
+                            BUS STAND, FRONT OF POLICE STATION, OLD, NARNAUND, HARYANA 125039
+                          </p>
+                        </div>
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover/item:text-blue-500 group-hover/item:translate-x-1 transition-all" />
+                      </button>
 
-                    <button onClick={() => openContactModal("", "uchana")}
-                      className="w-full flex items-center gap-3 text-left p-2.5 rounded-xl hover:bg-emerald-50/50 transition-colors group/item cursor-pointer mt-1"
-                    >
-                      <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 group-hover/item:bg-emerald-600 group-hover/item:text-white transition-colors">
-                        <MapPin className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-xs font-black text-slate-800 group-hover/item:text-emerald-600 transition-colors">
-                          Uchana Branch
-                        </p>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase">
-                          MAIN MARKET RAILWAY ROAD UCHANA
-                        </p>
-                      </div>
-                      <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover/item:text-emerald-500 group-hover/item:translate-x-1 transition-all" />
-                    </button>
+                      <button onClick={() => { openContactModal("", "uchana"); setContactOpen(false); }}
+                        className="w-full flex items-center gap-3 text-left p-2.5 rounded-xl hover:bg-emerald-50/50 transition-colors group/item cursor-pointer mt-1"
+                      >
+                        <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 group-hover/item:bg-emerald-600 group-hover/item:text-white transition-colors">
+                          <MapPin className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs font-black text-slate-800 group-hover/item:text-emerald-600 transition-colors">
+                            Uchana Branch
+                          </p>
+                          <p className="text-[9px] text-slate-400 font-bold uppercase">
+                            MAIN MARKET RAILWAY ROAD UCHANA
+                          </p>
+                        </div>
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover/item:text-emerald-500 group-hover/item:translate-x-1 transition-all" />
+                      </button>
 
                     <div className="h-px bg-slate-100 my-2" />
 
                     <button
-                      onClick={() => openContactModal()}
+                      onClick={() => { openContactModal(); setContactOpen(false); }}
                       className="w-full text-center py-2 text-[11px] font-black text-blue-600 hover:text-blue-700 hover:bg-blue-50/30 rounded-xl transition-all cursor-pointer"
                     >
                       General Enquiry (सामान्य पूछताछ)
                     </button>
                   </div>
-                </div>
+                )}
               </div>
+            </div>
 
               {/* Mobile Nav Toggle */}
               <div className="md:hidden flex items-center gap-2">
