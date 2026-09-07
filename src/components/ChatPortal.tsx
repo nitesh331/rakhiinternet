@@ -622,10 +622,11 @@ export default function ChatPortal({ onBack }: { onBack: () => void }) {
   };
 
   const quickPrompts = [
-    { label: "⚡ CSC Services", text: "Provide a list of online CSC services available at Rakhi Internet and explain how I can apply for a PAN card or Aadhaar correction." },
-    { label: "📦 Courier & Pricing", text: "I want to send an international courier. Tell me about Rakhi International Courier services, delivery speed, and how pricing works." },
-    { label: "🎓 College Admissions", text: "What university admission services are offered at Rakhi Internet? Guide me through BA/MA/BCom and KUK/MDU options." },
-    { label: "💻 Custom Software", text: "I am interested in custom software or a digital database portal for my business/school. Tell me about software collaboration with Nitesh Verma." }
+    { label: "🖨️ Document Print", text: "Tell me about Rakhi Internet's document printing services - what formats, paper sizes, and pricing for bulk printing." },
+    { label: "✂️ Photo BG Remover", text: "How does the AI background remover work? What image formats are supported and is there a file size limit?" },
+    { label: "📏 Image Resizer", text: "What can the image resizer do? Can I resize to specific dimensions, compress images, or convert formats?" },
+    { label: "📄 PDF Tools", text: "What PDF tools are available? Merge, split, compress, convert to Word/Excel, add watermarks, passwords?" },
+    { label: "⌨️ Typing Center", text: "What typing services do you offer? Hindi/English typing, document formatting, government form filling?" }
   ];
 
   return (

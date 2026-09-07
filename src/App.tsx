@@ -487,11 +487,32 @@ export default function App() {
                   </button>
                   <div className="absolute top-full left-0 mt-2 w-64 bg-white/95 backdrop-blur-xl border border-gray-100 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] rounded-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-500 flex flex-col py-2 z-50 origin-top-[50%] [-webkit-transform:rotateX(-25deg)_translateY(-15px)_scale(0.9)] group-hover:[-webkit-transform:rotateX(0deg)_translateY(0)_scale(1)] pointer-events-none group-hover:pointer-events-auto ease-[cubic-bezier(0.25,1.5,0.5,1)]">
                     <button
-                      onClick={() => scrollTo("services")}
-                      className="text-left px-4 py-2.5 text-xs text-gray-700 transition-all duration-300 hover:bg-blue-50/80 hover:text-blue-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative rounded-lg mx-1"
+                      onClick={() => {
+                        setCurrentView("print-service");
+                        window.scrollTo(0, 0);
+                      }}
+                      className="text-left px-4 py-2.5 text-xs text-gray-700 transition-all duration-300 hover:bg-purple-50/80 hover:text-purple-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative rounded-lg mx-1"
                     >
-                      CSC Services & Admissions
+                      Document Print Service
                     </button>
+                    <button
+                      onClick={() => {
+                        setPhotoToolActiveTab("bg-remover");
+                        setPhotoToolsModalOpen(true);
+                      }}
+                      className="text-left px-4 py-2.5 text-xs text-gray-700 transition-all duration-300 hover:bg-blue-50/80 hover:text-blue-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative flex items-center gap-2 rounded-lg mx-1"
+                    >
+                      <Scissors className="w-3.5 h-3.5" /> Photo Background Remover
+                    </button>
+                    <button
+                      onClick={() => {
+                        setImageResizerModalOpen(true);
+                      }}
+                      className="text-left px-4 py-2.5 text-xs text-gray-700 transition-all duration-300 hover:bg-blue-50/80 hover:text-blue-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative flex items-center gap-2 rounded-lg mx-1"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" /> Image Resizer
+                    </button>
+                    <div className="h-px bg-gray-100 my-1 mx-2"></div>
                     <button
                       onClick={() => setPdfToolsModalOpen(true)}
                       className="text-left px-4 py-2.5 text-xs text-gray-700 transition-all duration-300 hover:bg-blue-50/80 hover:text-blue-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative rounded-lg mx-1"
@@ -507,36 +528,6 @@ export default function App() {
                     >
                       Hindi/English Typing Center
                     </button>
-                    <button
-                      onClick={() => {
-                        setCurrentView("print-service");
-                        window.scrollTo(0, 0);
-                      }}
-                      className="text-left px-4 py-2.5 text-xs text-gray-700 transition-all duration-300 hover:bg-purple-50/80 hover:text-purple-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative rounded-lg mx-1"
-                    >
-                      Document Print Service
-                    </button>
-                    <div className="h-px bg-gray-100 my-1 mx-2"></div>
-                    <button
-                      onClick={() => {
-                        setPhotoToolActiveTab("bg-remover");
-                        setPhotoToolsModalOpen(true);
-                      }}
-                      className="text-left px-4 py-2.5 text-xs text-gray-700 transition-all duration-300 hover:bg-blue-50/80 hover:text-blue-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative flex items-center gap-2 rounded-lg mx-1"
-                    >
-                      <Scissors className="w-3.5 h-3.5" /> Photo Background
-                      Remover
-                    </button>
-                    <div className="h-px bg-gray-100 my-1 mx-2"></div>
-                    <button
-                      onClick={() => {
-                        setImageResizerModalOpen(true);
-                      }}
-                      className="text-left px-4 py-2.5 text-xs text-gray-700 transition-all duration-300 hover:bg-blue-50/80 hover:text-blue-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative flex items-center gap-2 rounded-lg mx-1"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" /> Image Resizer
-                    </button>
-
                   </div>
                 </div>
                 <div className="relative group" style={{ perspective: "1200px" }}>
@@ -752,70 +743,6 @@ export default function App() {
                           style={{ perspective: "800px" }}
                           className="pl-2 pr-1 py-1 space-y-2 border-l-2 border-orange-500/30 ml-4.5 mt-1"
                         >
-                          {/* CSC Services Section on main page */}
-                          <button
-                            onClick={() => {
-                              scrollTo("services");
-                              setMobileMenuOpen(false);
-                            }}
-                            className="w-full flex items-center gap-2.5 p-2.5 hover:bg-slate-50 border border-transparent hover:border-slate-100 rounded-xl transition-all text-left"
-                          >
-                            <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
-                              <Sparkles className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block leading-none mb-0.5">
-                                Homepage Scroll
-                              </span>
-                              <span className="text-xs font-black text-slate-700">
-                                CSC All Services (सेवाएं सूची)
-                              </span>
-                            </div>
-                          </button>
-
-                          {/* All Type PDF Tools */}
-                          <button
-                            onClick={() => {
-                              setPdfToolsModalOpen(true);
-                              setMobileMenuOpen(false);
-                            }}
-                            className="w-full flex items-center gap-2.5 p-2.5 hover:bg-slate-50 border border-transparent hover:border-slate-100 rounded-xl transition-all text-left"
-                          >
-                            <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
-                              <Calculator className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block leading-none mb-0.5">
-                                PDF Tools
-                              </span>
-                              <span className="text-xs font-black text-slate-700">
-                                CSC PDF Utilities (उपयोगी टूल्स)
-                              </span>
-                            </div>
-                          </button>
-
-                          {/* Typing Services */}
-                          <button
-                            onClick={() => {
-                              setCurrentView("typing-center");
-                              setMobileMenuOpen(false);
-                              window.scrollTo(0, 0);
-                            }}
-                            className="w-full flex items-center gap-2.5 p-2.5 hover:bg-slate-50 border border-transparent hover:border-slate-100 rounded-xl transition-all text-left"
-                          >
-                            <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
-                              <Keyboard className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <span className="text-[9px] text-emerald-600 font-extrabold uppercase tracking-wider block leading-none mb-0.5">
-                                Typing Center
-                              </span>
-                              <span className="text-xs font-black text-slate-700">
-                                Hindi/English Typing
-                              </span>
-                            </div>
-                          </button>
-
                           {/* Document Print Service */}
                           <button
                             onClick={() => {
@@ -838,8 +765,6 @@ export default function App() {
                             </div>
                           </button>
 
-                          <div className="h-px bg-slate-100 my-1 mx-2"></div>
-
                           {/* Photo Background Remover */}
                           <button
                             onClick={() => {
@@ -857,11 +782,12 @@ export default function App() {
                                 AI Tools
                               </span>
                               <span className="text-xs font-black text-slate-700">
-                                Background Remover
+                                Photo Background Remover
                               </span>
                             </div>
                           </button>
 
+                          {/* Image Resizer */}
                           <button
                             onClick={() => {
                               setImageResizerModalOpen(true);
@@ -878,6 +804,51 @@ export default function App() {
                               </span>
                               <span className="text-xs font-black text-slate-700">
                                 Image Resizer
+                              </span>
+                            </div>
+                          </button>
+
+                          <div className="h-px bg-slate-100 my-1 mx-2"></div>
+
+                          {/* CSC All-Type PDF Tools */}
+                          <button
+                            onClick={() => {
+                              setPdfToolsModalOpen(true);
+                              setMobileMenuOpen(false);
+                            }}
+                            className="w-full flex items-center gap-2.5 p-2.5 hover:bg-slate-50 border border-transparent hover:border-slate-100 rounded-xl transition-all text-left"
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
+                              <Calculator className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block leading-none mb-0.5">
+                                PDF Tools
+                              </span>
+                              <span className="text-xs font-black text-slate-700">
+                                CSC All-Type PDF Tools
+                              </span>
+                            </div>
+                          </button>
+
+                          {/* Typing Services */}
+                          <button
+                            onClick={() => {
+                              setCurrentView("typing-center");
+                              setMobileMenuOpen(false);
+                              window.scrollTo(0, 0);
+                            }}
+                            className="w-full flex items-center gap-2.5 p-2.5 hover:bg-slate-50 border border-transparent hover:border-slate-100 rounded-xl transition-all text-left"
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                              <Keyboard className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <span className="text-[9px] text-emerald-600 font-extrabold uppercase tracking-wider block leading-none mb-0.5">
+                                Typing Center
+                              </span>
+                              <span className="text-xs font-black text-slate-700">
+                                Hindi/English Typing
                               </span>
                             </div>
                           </button>
