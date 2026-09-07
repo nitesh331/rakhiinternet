@@ -574,16 +574,35 @@ export default function PdfTools() {
       // ---- PDF TO JPG ----
       else if (activeTool === 'pdfToJpg') {
         const item = selectedFiles[0];
-        const c = document.createElement('canvas');
-        c.width = 600; c.height = 800;
-        const ctx = c.getContext('2d')!;
-        ctx.fillStyle = '#f8fafc'; ctx.fillRect(0,0,600,800);
-        ctx.font = 'bold 20px Helvetica'; ctx.fillStyle = '#0f172a';
-        ctx.fillText(`PAGE 1 — ${item.file.name}`, 40, 80);
-        ctx.font = '14px Helvetica'; ctx.fillStyle = '#475569';
-        ctx.fillText('Converted locally inside CSC Digital Toolkit.', 40, 120);
-        c.toBlob(blob => { if (blob) setProcessedUrl(URL.createObjectURL(blob)); }, 'image/jpeg', 0.92);
-        setProcessSuccess('✅ PDF pages extracted as JPEG images!');
+        const b64 = await fileToBase64(item.file);
+        const res = await fetch('/api/pdf-to-jpg', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ pdfBase64: b64 }) });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || 'Failed to get PDF info.');
+
+        // Create a ZIP with placeholder images for each page (since we can't render PDF to images without pdf.js)
+        const zip = new (await import('jszip')).JSZip();
+        for (let i = 0; i < data.totalPages; i++) {
+          const c = document.createElement('canvas');
+          c.width = 800; c.height = 1000;
+          const ctx = c.getContext('2d')!;
+          ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,800,1000);
+          ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 2;
+          ctx.strokeRect(20, 20, 760, 960);
+          ctx.font = 'bold 24px Helvetica'; ctx.fillStyle = '#0f172a'; ctx.textAlign = 'center';
+          ctx.fillText(`Page ${i + 1} of ${data.totalPages}`, 400, 100);
+          ctx.font = '16px Helvetica'; ctx.fillStyle = '#475569';
+          ctx.fillText(`${item.file.name}`, 400, 140);
+          ctx.fillText(`Dimensions: ${data.pages[i]?.width || 595} x ${data.pages[i]?.height || 842} pts`, 400, 180);
+          ctx.font = '14px Helvetica'; ctx.fillStyle = '#94a3b8';
+          ctx.fillText('PDF to JPG conversion requires pdf.js renderer', 400, 300);
+          ctx.fillText('Use an online converter for full rendering', 400, 330);
+          
+          const blob: Blob | null = await new Promise(resolve => c.toBlob(resolve, 'image/jpeg', 0.92));
+          if (blob) zip.file(`page-${i + 1}.jpg`, blob);
+        }
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        setProcessedUrl(URL.createObjectURL(zipBlob));
+        setProcessSuccess(`✅ ${data.totalPages} page placeholders created as ZIP!`);
       }
 
       // ---- PDF TO WORD ----
@@ -593,7 +612,15 @@ export default function PdfTools() {
         const data = await res.json();
         if (!res.ok || data.error) throw new Error(data.error || 'Word converter failed.');
         setAiResponseText(data.text);
-        setProcessedUrl(URL.createObjectURL(new Blob([data.text], { type:'application/msword' })));
+        const { Document, Packer, Paragraph, TextRun } = await import('docx');
+        const doc = new Document({
+          sections: [{
+            properties: {},
+            children: data.text.split('\n').map(line => new Paragraph({ children: [new TextRun(line)] }))
+          }]
+        });
+        const blob = await Packer.toBlob(doc);
+        setProcessedUrl(URL.createObjectURL(blob));
         setProcessSuccess('✅ PDF converted to Word document!');
       }
 

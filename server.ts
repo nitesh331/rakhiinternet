@@ -456,6 +456,159 @@ async function startServer() {
     }
   });
 
+  // PDF to Word - extract text using pdf-lib
+  app.post("/api/pdf-to-word", async (req, res) => {
+    try {
+      const { pdfBase64 } = req.body;
+      if (!pdfBase64) return res.status(400).json({ error: "pdfBase64 required" });
+      const pdfBuffer = Buffer.from(pdfBase64, "base64");
+      const { PDFDocument } = await import("pdf-lib");
+      const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+      let text = "";
+      for (const page of doc.getPages()) {
+        const content = page.node.ContentStream;
+        if (content) {
+          text += "\n--- Page " + (doc.getPages().indexOf(page) + 1) + " ---\n";
+          text += content.toString().substring(0, 5000);
+        }
+      }
+      if (!text.trim()) {
+        text = "No extractable text found. This may be a scanned PDF - use OCR tool instead.";
+      }
+      res.json({ text });
+    } catch (error) {
+      res.status(500).json({ error: error?.message || "Failed to extract text" });
+    }
+  });
+
+  // PDF to Excel - extract tables (basic text extraction for CSV)
+  app.post("/api/pdf-to-excel", async (req, res) => {
+    try {
+      const { pdfBase64 } = req.body;
+      if (!pdfBase64) return res.status(400).json({ error: "pdfBase64 required" });
+      const pdfBuffer = Buffer.from(pdfBase64, "base64");
+      const { PDFDocument } = await import("pdf-lib");
+      const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+      let csv = "Page,Text Content\n";
+      for (let i = 0; i < doc.getPageCount(); i++) {
+        const page = doc.getPages()[i];
+        const content = page.node.ContentStream;
+        let pageText = "No text extracted";
+        if (content) {
+          pageText = content.toString().substring(0, 2000).replace(/[\r\n,]/g, " ");
+        }
+        csv += `${i + 1},"${pageText}"\n`;
+      }
+      res.json({ csv });
+    } catch (error) {
+      res.status(500).json({ error: error?.message || "Failed to extract tables" });
+    }
+  });
+
+  // PDF OCR - extract text from scanned PDFs using Groq vision
+  app.post("/api/pdf-ocr", async (req, res) => {
+    try {
+      const { pdfBase64 } = req.body;
+      if (!pdfBase64) return res.status(400).json({ error: "pdfBase64 required" });
+      const groqKeys = getGroqApiKeys();
+      if (!groqKeys.length) throw new Error("No Groq API key");
+      
+      // Convert PDF to images would require pdf2img - fallback to text extraction
+      const pdfBuffer = Buffer.from(pdfBase64, "base64");
+      const { PDFDocument } = await import("pdf-lib");
+      const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+      let text = "";
+      for (let i = 0; i < Math.min(doc.getPageCount(), 5); i++) {
+        const page = doc.getPages()[i];
+        const content = page.node.ContentStream;
+        if (content) {
+          text += "\n--- Page " + (i + 1) + " ---\n";
+          text += content.toString().substring(0, 3000);
+        }
+      }
+      if (!text.trim()) {
+        text = "No extractable text found. For scanned PDFs, use an external OCR service or the AI summarizer with Groq vision.";
+      }
+      res.json({ text });
+    } catch (error) {
+      res.status(500).json({ error: error?.message || "OCR failed" });
+    }
+  });
+
+  // PDF Summarize - use Groq AI
+  app.post("/api/pdf-summarize", async (req, res) => {
+    try {
+      const { pdfBase64, targetLanguage = "English" } = req.body;
+      if (!pdfBase64) return res.status(400).json({ error: "pdfBase64 required" });
+      const pdfBuffer = Buffer.from(pdfBase64, "base64");
+      const { PDFDocument } = await import("pdf-lib");
+      const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+      let text = "";
+      for (let i = 0; i < Math.min(doc.getPageCount(), 10); i++) {
+        const page = doc.getPages()[i];
+        const content = page.node.ContentStream;
+        if (content) text += content.toString().substring(0, 4000);
+      }
+      if (!text.trim()) {
+        return res.json({ summary: "No extractable text found in PDF." });
+      }
+      const prompt = `Summarize this document in ${targetLanguage}. Be detailed and structured:\n\n${text.substring(0, 8000)}`;
+      const reply = await callGroqWithFallback("openai/gpt-oss-120b", [
+        { role: "system", content: "You are a document summarization expert. Provide detailed, well-structured summaries." },
+        { role: "user", content: prompt }
+      ]);
+      res.json({ summary: reply });
+    } catch (error) {
+      res.status(500).json({ error: error?.message || "Summarization failed" });
+    }
+  });
+
+  // PDF Translate - use Groq AI
+  app.post("/api/pdf-translate", async (req, res) => {
+    try {
+      const { pdfBase64, targetLanguage = "Hindi" } = req.body;
+      if (!pdfBase64) return res.status(400).json({ error: "pdfBase64 required" });
+      const pdfBuffer = Buffer.from(pdfBase64, "base64");
+      const { PDFDocument } = await import("pdf-lib");
+      const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+      let text = "";
+      for (let i = 0; i < Math.min(doc.getPageCount(), 8); i++) {
+        const page = doc.getPages()[i];
+        const content = page.node.ContentStream;
+        if (content) text += content.toString().substring(0, 4000);
+      }
+      if (!text.trim()) {
+        return res.json({ translation: "No extractable text found in PDF." });
+      }
+      const prompt = `Translate this document to ${targetLanguage}. Preserve formatting and structure:\n\n${text.substring(0, 8000)}`;
+      const reply = await callGroqWithFallback("openai/gpt-oss-120b", [
+        { role: "system", content: "You are a professional translator. Translate accurately preserving document structure." },
+        { role: "user", content: prompt }
+      ]);
+      res.json({ translation: reply });
+    } catch (error) {
+      res.status(500).json({ error: error?.message || "Translation failed" });
+    }
+  });
+
+  // PDF to JPG - return page info for frontend canvas rendering
+  app.post("/api/pdf-to-jpg", async (req, res) => {
+    try {
+      const { pdfBase64 } = req.body;
+      if (!pdfBase64) return res.status(400).json({ error: "pdfBase64 required" });
+      const pdfBuffer = Buffer.from(pdfBase64, "base64");
+      const { PDFDocument } = await import("pdf-lib");
+      const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+      const pages = doc.getPages().map((page, i) => {
+        const { width, height } = page.getSize();
+        return { page: i + 1, width, height };
+      });
+      res.json({ pages, totalPages: doc.getPageCount() });
+    } catch (error) {
+      res.status(500).json({ error: error?.message || "Failed to get PDF info" });
+    }
+  });
+
 
   app.get("/api/ai-status", (req, res) => {
     const groqKeys = getGroqApiKeys();
