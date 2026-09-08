@@ -841,7 +841,7 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     
     // Additional safety wait for DOM to be ready
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 150));
     
     if (!videoRef.current) {
       setError('Camera view failed to initialize. Please try again.');
@@ -882,51 +882,63 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
       
       const video = videoRef.current;
       if (!video) throw new Error('Video element not found');
+      
+      // Attach stream and force play
       video.srcObject = stream;
       
-      // Safari/iOS: wait for video to be ready with proper event handling
+      // Force video to load and play
       await new Promise<void>((resolve, reject) => {
         if (!videoRef.current) return reject(new Error('No video element'));
         
         const vid = videoRef.current;
         
-        // Clean up any existing event listeners
-        const cleanup = () => {
-          vid.onloadedmetadata = null;
-          vid.onerror = null;
-          vid.onplaying = null;
+        // Ensure video is ready
+        const handleCanPlay = async () => {
           vid.oncanplay = null;
-        };
-        
-        // Safari needs oncanplay for reliable autoplay
-        const handleCanPlay = () => {
-          cleanup();
-          vid.play()
-            .then(() => {
-              if (vid.readyState >= 2) {
+          vid.onerror = null;
+          
+          try {
+            await vid.play();
+            // Wait a bit for first frame
+            await new Promise(r => setTimeout(r, 100));
+            if (vid.readyState >= 2) {
+              resolve();
+            } else {
+              // Wait for playing event as fallback
+              vid.onplaying = () => {
+                vid.onplaying = null;
                 resolve();
-              } else {
-                vid.onplaying = () => {
-                  vid.onplaying = null;
-                  resolve();
-                };
-              }
-            })
-            .catch(reject);
+              };
+              // Timeout fallback
+              setTimeout(() => {
+                vid.onplaying = null;
+                resolve();
+              }, 3000);
+            }
+          } catch (e) {
+            reject(new Error('Play failed: ' + (e as any)?.message));
+          }
         };
         
         vid.oncanplay = handleCanPlay;
         vid.onerror = (e) => {
-          cleanup();
+          vid.oncanplay = null;
           reject(new Error('Video error: ' + (e as any)?.message || 'Unknown video error'));
         };
         
+        // Also try to play immediately if metadata is already loaded
+        if (vid.readyState >= 1) {
+          handleCanPlay();
+        }
+        
         // Fallback timeout
         setTimeout(() => {
-          cleanup();
-          reject(new Error('Video metadata timeout - camera may be busy'));
-        }, 10000);
+          vid.oncanplay = null;
+          vid.onerror = null;
+          // Don't reject immediately, video might still be loading
+        }, 12000);
       });
+      
     } catch (err: any) {
       console.error('Camera error:', err);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
@@ -944,13 +956,12 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
             videoRef.current.srcObject = fallbackStream;
             await new Promise<void>((resolve, reject) => {
               if (!videoRef.current) return reject();
-              videoRef.current!.onloadedmetadata = () => {
+              videoRef.current!.oncanplay = () => {
                 videoRef.current!.play().then(resolve).catch(reject);
               };
               videoRef.current!.onerror = reject;
               setTimeout(() => reject(new Error('Timeout')), 5000);
             });
-            setIsCameraActive(true);
             return;
           }
         } catch (e) {
