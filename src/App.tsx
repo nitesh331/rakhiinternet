@@ -1051,7 +1051,7 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
     if (scans.length === 0) return;
     
     setIsProcessing(true);
-    setProcessingStage('Generating HD PDF...');
+    setProcessingStage('Generating PDF...');
     
     try {
       const { jsPDF } = await import('jspdf');
@@ -1067,11 +1067,12 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
       const images = await Promise.all(scans.map(src => {
         const img = new Image();
         img.src = src;
-        return new Promise<HTMLImageElement>((resolve, reject) => {
-          img.onload = () => resolve(img);
-          img.onerror = reject;
-        });
-      }));
+return new Promise<HTMLImageElement>((resolve, reject) => {
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+          });
+        })
+      );
       
       for (let i = 0; i < scans.length; i++) {
         if (i > 0) pdf.addPage();
@@ -1094,8 +1095,8 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
         const x = (pageWidth - drawWidth) / 2;
         const y = (pageHeight - drawHeight) / 2;
         
-        pdf.addImage(scans[i], 'JPEG', x, y, drawWidth, drawHeight, undefined, 'FAST');
-        setProcessingStage(`Processing page ${i + 1} of ${scans.length}...`);
+        // Use MEDIUM quality JPEG (0.7) for much faster generation and smaller files
+        pdf.addImage(scans[i], 'JPEG', x, y, drawWidth, drawHeight, undefined, 'MEDIUM');
       }
       
       const blob = pdf.output('blob');
@@ -1156,28 +1157,45 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-700"
+        className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-b border-slate-200 dark:border-slate-700"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo & Title */}
+            <div className="flex items-center gap-3">
+              <motion.button
+                onClick={onBack}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 rounded-xl font-semibold text-sm transition-all"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">Back</span>
+              </motion.button>
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-black text-slate-900 dark:text-white">PDF Maker</h1>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Scan • Enhance • Create PDF</p>
+                </div>
+              </div>
+            </div>
+            {/* Dark Mode Toggle */}
             <motion.button
-              onClick={onBack}
-              whileHover={{ scale: 1.05 }}
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 rounded-xl font-semibold text-sm transition-all"
+              className={`p-2 rounded-full transition-colors ${isDarkMode ? "text-yellow-500 hover:bg-yellow-100 dark:hover:bg-yellow-900/30" : "text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"}`}
+              aria-label="Toggle Dark Mode"
             >
-              <ChevronLeft className="w-4 h-4" />
-              Back
+              {isDarkMode ? (
+                <Sun className="w-5 h-5" />
+              ) : (
+                <Moon className="w-5 h-5" />
+              )}
             </motion.button>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="flex-1 text-center"
-            >
-              <h1 className="text-xl font-black text-slate-900 dark:text-white">PDF Maker</h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Scan • Enhance • Create PDF</p>
-            </motion.div>
-            <div className="w-20" />
           </div>
         </div>
       </motion.div>
