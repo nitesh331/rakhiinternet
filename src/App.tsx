@@ -837,8 +837,12 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
     // First, activate the camera view so the video element renders
     setIsCameraActive(true);
     
-    // Wait for video element to be mounted
-    await new Promise(resolve => setTimeout(resolve, 150));
+    // Wait for React to render the video element (next frame)
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    
+    // Additional safety wait for DOM to be ready
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     if (!videoRef.current) {
       setError('Camera view failed to initialize. Please try again.');
       setIsCameraLoading(false);
