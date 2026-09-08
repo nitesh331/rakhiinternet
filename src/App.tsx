@@ -823,16 +823,25 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
     setError(null);
     setIsCameraLoading(true);
     
+    // Detect mobile for appropriate constraints
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
     // Try back camera first, then front as fallback
     const tryGetStream = async (facingMode: 'environment' | 'user') => {
-      return navigator.mediaDevices.getUserMedia({
+      const constraints: MediaStreamConstraints = {
         video: {
           facingMode: { ideal: facingMode },
-          width: { ideal: 1920, min: 640 },
-          height: { ideal: 1080, min: 480 },
-          focusMode: 'continuous',
+          width: { ideal: isMobile ? 1280 : 1920, min: 640 },
+          height: { ideal: isMobile ? 720 : 1080, min: 480 },
         },
-      });
+      };
+      
+      // Only add focusMode on supported platforms (not iOS Safari)
+      if (!/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        (constraints.video as any).focusMode = 'continuous';
+      }
+      
+      return navigator.mediaDevices.getUserMedia(constraints);
     };
 
     let stream: MediaStream | null = null;
@@ -1187,6 +1196,7 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
                     ref={videoRef}
                     className="w-full h-full object-cover"
                     playsInline
+                    webkit-playsinline="true"
                     autoPlay
                     muted
                     onLoadedMetadata={(e) => {
@@ -1203,6 +1213,10 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
                     }}
                     onPlaying={() => {
                       // Video started playing
+                    }}
+                    onCanPlay={() => {
+                      const target = e.target as HTMLVideoElement;
+                      target.play().catch(console.error);
                     }}
                   />
                   {/* Corner guides for document alignment */}
