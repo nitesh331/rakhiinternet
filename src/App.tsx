@@ -822,32 +822,111 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
   const startCamera = async () => {
     setError(null);
     setIsCameraLoading(true);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+    
+    // Try back camera first, then front as fallback
+    const tryGetStream = async (facingMode: 'environment' | 'user') => {
+      return navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: { ideal: 'environment' },
+          facingMode: { ideal: facingMode },
           width: { ideal: 1920, min: 640 },
           height: { ideal: 1080, min: 480 },
           focusMode: 'continuous',
         },
       });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        // Wait for video to be ready
-        await new Promise<void>((resolve, reject) => {
-          if (!videoRef.current) return reject();
-          videoRef.current.onloadedmetadata = () => {
-            videoRef.current!.play().then(resolve).catch(reject);
-          };
-          videoRef.current.onerror = reject;
-          // Fallback timeout
-          setTimeout(() => reject(new Error('Video metadata timeout')), 5000);
-        });
+    };
+
+    let stream: MediaStream | null = null;
+    
+    try {
+      // Try back camera
+      try {
+        stream = await tryGetStream('environment');
+      } catch {
+        // Fallback to front camera
+        stream = await tryGetStream('user');
       }
+
+      if (!videoRef.current || !stream) throw new Error('No video element or stream');
+      
+      videoRef.current.srcObject = stream;
+      
+      // Wait for video to be ready with proper event handling
+      await new Promise<void>((resolve, reject) => {
+        if (!videoRef.current) return reject(new Error('No video element'));
+        
+        const video = videoRef.current;
+        
+        // Clean up any existing event listeners
+        const cleanup = () => {
+          video.onloadedmetadata = null;
+          video.onerror = null;
+          video.onplaying = null;
+        };
+        
+        video.onloadedmetadata = () => {
+          cleanup();
+          // Ensure video plays
+          video.play()
+            .then(() => {
+              // Wait for first frame
+              if (video.readyState >= 2) {
+                resolve();
+              } else {
+                video.onplaying = () => {
+                  video.onplaying = null;
+                  resolve();
+                };
+              }
+            })
+            .catch(reject);
+        };
+        
+        video.onerror = (e) => {
+          cleanup();
+          reject(new Error('Video error: ' + (e as any)?.message || 'Unknown video error'));
+        };
+        
+        // Fallback timeout
+        setTimeout(() => {
+          cleanup();
+          reject(new Error('Video metadata timeout - camera may be busy'));
+        }, 8000);
+      });
+      
       setIsCameraActive(true);
-    } catch (err) {
-      setError('Camera access denied. Please enable camera permissions and use HTTPS.');
-      console.error(err);
+    } catch (err: any) {
+      console.error('Camera error:', err);
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setError('Camera permission denied. Please allow camera access in browser settings and reload.');
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        setError('No camera found. Please connect a camera and reload.');
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        setError('Camera is busy or unavailable. Close other apps using camera and try again.');
+      } else if (err.name === 'OverconstrainedError') {
+        setError('Camera doesn\'t support requested resolution. Trying with lower settings...');
+        // Try with minimal constraints
+        try {
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          if (videoRef.current) {
+            videoRef.current.srcObject = fallbackStream;
+            await new Promise<void>((resolve, reject) => {
+              if (!videoRef.current) return reject();
+              videoRef.current!.onloadedmetadata = () => {
+                videoRef.current!.play().then(resolve).catch(reject);
+              };
+              videoRef.current!.onerror = reject;
+              setTimeout(() => reject(new Error('Timeout')), 5000);
+            });
+            setIsCameraActive(true);
+            return;
+          }
+        } catch (e) {
+          setError('Unable to access camera. Please check permissions and try again.');
+        }
+        return;
+      } else {
+        setError(`Camera error: ${err.message}. Please check permissions and use HTTPS.`);
+      }
     } finally {
       setIsCameraLoading(false);
     }
@@ -1090,9 +1169,20 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="mb-6 rounded-2xl overflow-hidden bg-black shadow-2xl"
+                className="mb-6 rounded-2xl overflow-hidden bg-black shadow-2xl relative"
               >
-                <div className="relative aspect-[4/3]">
+                {/* Loading overlay */}
+                {isCameraLoading && (
+                  <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-10">
+                    <div className="text-center text-white">
+                      <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                      <p className="text-lg">Starting camera...</p>
+                      <p className="text-sm text-blue-200 mt-1">Please wait</p>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="relative aspect-[4/3] bg-black">
                   <video
                     ref={videoRef}
                     className="w-full h-full object-cover"
@@ -1103,6 +1193,17 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
                       const target = e.target as HTMLVideoElement;
                       target.play().catch(console.error);
                     }}
+                    onError={(e) => {
+                      console.error('Video error:', e);
+                      setError('Camera stream error. Please try again.');
+                      stopCamera();
+                    }}
+                    onWaiting={() => {
+                      // Video is buffering
+                    }}
+                    onPlaying={() => {
+                      // Video started playing
+                    }}
                   />
                   {/* Corner guides for document alignment */}
                   <div className="absolute inset-4 border-2 border-blue-500/50 rounded-xl pointer-events-none">
@@ -1110,6 +1211,12 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
                     <div className="absolute -top-2 -right-2 w-8 h-8 border-t-4 border-r-4 border-blue-500" />
                     <div className="absolute -bottom-2 -left-2 w-8 h-8 border-b-4 border-l-4 border-blue-500" />
                     <div className="absolute -bottom-2 -right-2 w-8 h-8 border-b-4 border-r-4 border-blue-500" />
+                  </div>
+                  
+                  {/* Camera status indicator */}
+                  <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/60 text-white px-3 py-1 rounded-full text-xs font-medium">
+                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    LIVE
                   </div>
                 </div>
                 <div className="p-4 bg-white dark:bg-slate-800 flex items-center justify-between">
