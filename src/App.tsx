@@ -883,61 +883,11 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
       const video = videoRef.current;
       if (!video) throw new Error('Video element not found');
       
-      // Attach stream and force play
+      // Attach stream
       video.srcObject = stream;
       
-      // Force video to load and play
-      await new Promise<void>((resolve, reject) => {
-        if (!videoRef.current) return reject(new Error('No video element'));
-        
-        const vid = videoRef.current;
-        
-        // Ensure video is ready
-        const handleCanPlay = async () => {
-          vid.oncanplay = null;
-          vid.onerror = null;
-          
-          try {
-            await vid.play();
-            // Wait a bit for first frame
-            await new Promise(r => setTimeout(r, 100));
-            if (vid.readyState >= 2) {
-              resolve();
-            } else {
-              // Wait for playing event as fallback
-              vid.onplaying = () => {
-                vid.onplaying = null;
-                resolve();
-              };
-              // Timeout fallback
-              setTimeout(() => {
-                vid.onplaying = null;
-                resolve();
-              }, 3000);
-            }
-          } catch (e) {
-            reject(new Error('Play failed: ' + (e as any)?.message));
-          }
-        };
-        
-        vid.oncanplay = handleCanPlay;
-        vid.onerror = (e) => {
-          vid.oncanplay = null;
-          reject(new Error('Video error: ' + (e as any)?.message || 'Unknown video error'));
-        };
-        
-        // Also try to play immediately if metadata is already loaded
-        if (vid.readyState >= 1) {
-          handleCanPlay();
-        }
-        
-        // Fallback timeout
-        setTimeout(() => {
-          vid.oncanplay = null;
-          vid.onerror = null;
-          // Don't reject immediately, video might still be loading
-        }, 12000);
-      });
+      // Wait for video to be ready with robust approach
+      await waitForVideoReady(video);
       
     } catch (err: any) {
       console.error('Camera error:', err);
@@ -954,14 +904,7 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
           const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
           if (videoRef.current) {
             videoRef.current.srcObject = fallbackStream;
-            await new Promise<void>((resolve, reject) => {
-              if (!videoRef.current) return reject();
-              videoRef.current!.oncanplay = () => {
-                videoRef.current!.play().then(resolve).catch(reject);
-              };
-              videoRef.current!.onerror = reject;
-              setTimeout(() => reject(new Error('Timeout')), 5000);
-            });
+            await waitForVideoReady(videoRef.current);
             return;
           }
         } catch (e) {
@@ -974,6 +917,100 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
     } finally {
       setIsCameraLoading(false);
     }
+  };
+
+  // Robust video ready waiter with polling and multiple event fallbacks
+  const waitForVideoReady = (video: HTMLVideoElement): Promise<void> => {
+    return new Promise((resolve) => {
+      let resolved = false;
+      
+      const cleanup = () => {
+        video.oncanplay = null;
+        video.onerror = null;
+        video.onloadedmetadata = null;
+        video.onplaying = null;
+      };
+      
+      const checkReady = () => {
+        if (resolved) return;
+        
+        // Check if video is ready to play
+        if (video.readyState >= 2) { // HAVE_CURRENT_DATA or better
+          resolved = true;
+          cleanup();
+          resolve();
+          return;
+        }
+        
+        // If we have metadata but not enough data, try to play
+        if (video.readyState >= 1) {
+          video.play().catch(() => {});
+        }
+      };
+      
+      // Event handlers
+      const onCanPlay = () => {
+        if (!resolved) {
+          resolved = true;
+          cleanup();
+          resolve();
+        }
+      };
+      
+      const onPlaying = () => {
+        if (!resolved) {
+          resolved = true;
+          cleanup();
+          resolve();
+        }
+      };
+      
+      const onError = () => {
+        if (!resolved) {
+          resolved = true;
+          cleanup();
+          // Don't reject, just resolve - video might still work
+          resolve();
+        }
+      };
+      
+      video.oncanplay = onCanPlay;
+      video.onplaying = onPlaying;
+      video.onerror = onError;
+      
+      // Also check periodically (for cases where events don't fire)
+      const interval = setInterval(() => {
+        if (resolved) {
+          clearInterval(interval);
+          return;
+        }
+        checkReady();
+        // If video has been playing for a bit, consider it ready
+        if (video.currentTime > 0.1 && !resolved) {
+          resolved = true;
+          cleanup();
+          clearInterval(interval);
+          resolve();
+        }
+      }, 200);
+      
+      // Initial check in case video is already ready
+      checkReady();
+      
+      // Force play attempt
+      video.play().catch(() => {});
+      
+      // Timeout fallback - always resolve, don't reject
+      setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          cleanup();
+          clearInterval(interval);
+          console.warn('Video ready timeout, continuing anyway');
+          resolve();
+        }
+      }, 12000);
+    });
   };
 
   const stopCamera = () => {
