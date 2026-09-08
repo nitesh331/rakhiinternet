@@ -834,9 +834,13 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
       return;
     }
     
-    // Wait for video element to be mounted and ready
+    // First, activate the camera view so the video element renders
+    setIsCameraActive(true);
+    
+    // Wait for video element to be mounted
+    await new Promise(resolve => setTimeout(resolve, 150));
     if (!videoRef.current) {
-      setError('Camera view not ready. Please try again.');
+      setError('Camera view failed to initialize. Please try again.');
       setIsCameraLoading(false);
       return;
     }
@@ -870,9 +874,10 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
         stream = await tryGetStream('user');
       }
 
-      if (!videoRef.current || !stream) throw new Error('No video element or stream');
+      if (!stream) throw new Error('No camera stream obtained');
       
       const video = videoRef.current;
+      if (!video) throw new Error('Video element not found');
       video.srcObject = stream;
       
       // Safari/iOS: wait for video to be ready with proper event handling
@@ -918,8 +923,6 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
           reject(new Error('Video metadata timeout - camera may be busy'));
         }, 10000);
       });
-      
-      setIsCameraActive(true);
     } catch (err: any) {
       console.error('Camera error:', err);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
