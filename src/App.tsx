@@ -1033,20 +1033,31 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
       return;
     }
     
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d')!;
-    ctx.drawImage(video, 0, 0);
+    setIsProcessing(true);
+    setProcessingStage('Capturing image...');
     
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-    
-    // Process image for HD quality
-    setProcessingStage('Enhancing image quality...');
-    const enhanced = await autoCrop(dataUrl);
-    
-    setScans(prev => [...prev, enhanced]);
-    setProcessingStage('');
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(video, 0, 0);
+      
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      
+      // Process image for HD quality
+      setProcessingStage('Enhancing image quality...');
+      const enhanced = await autoCrop(dataUrl);
+      
+      setScans(prev => [...prev, enhanced]);
+      setProcessingStage('');
+    } catch (err) {
+      console.error('Capture error:', err);
+      setError('Failed to capture image. Please try again.');
+    } finally {
+      setIsProcessing(false);
+      setProcessingStage('');
+    }
   };
 
   const removeScan = (index: number) => {
