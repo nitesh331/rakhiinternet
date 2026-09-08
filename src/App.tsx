@@ -725,7 +725,7 @@ function AboutPage({ onBack, onChat, onContact }: { onBack: () => void; onChat: 
 function PDFMaker({ onBack }: { onBack: () => void }) {
   const [scans, setScans] = useState<string[]>([]);
   const [isCameraActive, setIsCameraActive] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isCameraLoading, setIsCameraLoading] = useState(false);
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -821,23 +821,35 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
 
   const startCamera = async () => {
     setError(null);
+    setIsCameraLoading(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: 'environment',
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1920, min: 640 },
+          height: { ideal: 1080, min: 480 },
           focusMode: 'continuous',
         },
       });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        // Wait for video to be ready
+        await new Promise<void>((resolve, reject) => {
+          if (!videoRef.current) return reject();
+          videoRef.current.onloadedmetadata = () => {
+            videoRef.current!.play().then(resolve).catch(reject);
+          };
+          videoRef.current.onerror = reject;
+          // Fallback timeout
+          setTimeout(() => reject(new Error('Video metadata timeout')), 5000);
+        });
       }
       setIsCameraActive(true);
     } catch (err) {
-      setError('Camera access denied. Please enable camera permissions.');
+      setError('Camera access denied. Please enable camera permissions and use HTTPS.');
       console.error(err);
+    } finally {
+      setIsCameraLoading(false);
     }
   };
 
@@ -853,6 +865,13 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
     if (!videoRef.current) return;
     
     const video = videoRef.current;
+    
+    // Ensure video is ready
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      setError('Camera not ready. Please wait a moment and try again.');
+      return;
+    }
+    
     const canvas = document.createElement('canvas');
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -1047,11 +1066,21 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
             </p>
             <motion.button
               onClick={startCamera}
+              disabled={isCameraLoading}
               whileHover={{ scale: 1.03, y: -2 }}
               whileTap={{ scale: 0.98 }}
-              className="inline-flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 hover:from-blue-700 hover:to-indigo-700 transition-all"
+              className="inline-flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Camera className="w-5 h-5" /> Start Camera Scan
+              {isCameraLoading ? (
+                <>
+                  <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                  Starting Camera...
+                </>
+              ) : (
+                <>
+                  <Camera className="w-5 h-5" /> Start Camera Scan
+                </>
+              )}
             </motion.button>
           </motion.div>
         ) : (
@@ -1070,6 +1099,10 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
                     playsInline
                     autoPlay
                     muted
+                    onLoadedMetadata={(e) => {
+                      const target = e.target as HTMLVideoElement;
+                      target.play().catch(console.error);
+                    }}
                   />
                   {/* Corner guides for document alignment */}
                   <div className="absolute inset-4 border-2 border-blue-500/50 rounded-xl pointer-events-none">
