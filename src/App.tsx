@@ -737,7 +737,7 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Enhanced image processing for HD quality
+  // Enhanced image processing for HD quality - OPTIMIZED
   const enhanceImage = (src: string): Promise<string> => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -746,8 +746,8 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
         const canvas = previewCanvasRef.current!;
         const ctx = canvas.getContext('2d')!;
         
-        // Calculate optimal dimensions (max 2000px for quality)
-        const maxDim = 2000;
+        // Calculate optimal dimensions (max 1600px for faster processing)
+        const maxDim = 1600;
         let { width, height } = img;
         if (width > maxDim || height > maxDim) {
           const ratio = Math.min(maxDim / width, maxDim / height);
@@ -763,59 +763,35 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, width, height);
         
-        // Apply enhancement filters
+        // Fast enhancement: Contrast & brightness only (no expensive unsharp mask)
         const imageData = ctx.getImageData(0, 0, width, height);
         const data = imageData.data;
         
-        // Contrast & sharpness boost
-        const contrast = 1.15;
-        const brightness = 1.05;
+        // Contrast & brightness boost - vectorized for speed
+        const contrast = 1.2;
+        const brightness = 1.08;
+        const contrastFactor = contrast;
+        const brightnessOffset = (brightness - 1) * 255;
         
         for (let i = 0; i < data.length; i += 4) {
-          data[i] = Math.min(255, data[i] * contrast + (brightness - 1) * 255);     // R
-          data[i + 1] = Math.min(255, data[i + 1] * contrast + (brightness - 1) * 255); // G
-          data[i + 2] = Math.min(255, data[i + 2] * contrast + (brightness - 1) * 255); // B
+          data[i] = Math.min(255, data[i] * contrastFactor + brightnessOffset);     // R
+          data[i + 1] = Math.min(255, data[i + 1] * contrastFactor + brightnessOffset); // G
+          data[i + 2] = Math.min(255, data[i + 2] * contrastFactor + brightnessOffset); // B
         }
         
         ctx.putImageData(imageData, 0, 0);
         
-        // Unsharp mask for extra clarity
-        const sharpened = ctx.getImageData(0, 0, width, height);
-        const sharpenData = sharpened.data;
-        const kernel = [0, -1, 0, -1, 5, -1, 0, -1, 0];
-        
-        for (let y = 1; y < height - 1; y++) {
-          for (let x = 1; x < width - 1; x++) {
-            let r = 0, g = 0, b = 0;
-            for (let ky = -1; ky <= 1; ky++) {
-              for (let kx = -1; kx <= 1; kx++) {
-                const idx = ((y + ky) * width + (x + kx)) * 4;
-                const k = kernel[(ky + 1) * 3 + (kx + 1)];
-                r += data[idx] * k;
-                g += data[idx + 1] * k;
-                b += data[idx + 2] * k;
-              }
-            }
-            const idx = (y * width + x) * 4;
-            sharpenData[idx] = Math.min(255, Math.max(0, r));
-            sharpenData[idx + 1] = Math.min(255, Math.max(0, g));
-            sharpenData[idx + 2] = Math.min(255, Math.max(0, b));
-          }
-        }
-        
-        ctx.putImageData(sharpened, 0, 0);
-        
-        resolve(canvas.toDataURL('image/jpeg', 0.95));
+        // Output as JPEG with good quality
+        resolve(canvas.toDataURL('image/jpeg', 0.92));
       };
       img.src = src;
     });
   };
 
-  // Auto-detect document edges (simple implementation)
+  // Auto-crop/document detection - LIGHTWEIGHT version
   const autoCrop = (src: string): Promise<string> => {
     return new Promise((resolve) => {
-      // For production, you'd use OpenCV.js or similar
-      // This returns enhanced image as-is for now
+      // Skip heavy processing - just enhance for speed
       enhanceImage(src).then(resolve);
     });
   };
@@ -1087,12 +1063,20 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
       const maxWidth = pageWidth - margin * 2;
       const maxHeight = pageHeight - margin * 2;
       
+      // Pre-load all images in parallel for speed
+      const images = await Promise.all(scans.map(src => {
+        const img = new Image();
+        img.src = src;
+        return new Promise<HTMLImageElement>((resolve, reject) => {
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+        });
+      }));
+      
       for (let i = 0; i < scans.length; i++) {
         if (i > 0) pdf.addPage();
         
-        const img = new Image();
-        img.src = scans[i];
-        await new Promise(r => { img.onload = r; });
+        const img = images[i];
         
         // Calculate fit
         const imgRatio = img.width / img.height;
