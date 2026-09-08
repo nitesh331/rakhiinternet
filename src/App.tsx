@@ -825,6 +825,21 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
     
     // Detect mobile for appropriate constraints
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    
+    // Verify HTTPS (required for camera)
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+      setError('Camera requires HTTPS. Please access via HTTPS or localhost.');
+      setIsCameraLoading(false);
+      return;
+    }
+    
+    // Wait for video element to be mounted and ready
+    if (!videoRef.current) {
+      setError('Camera view not ready. Please try again.');
+      setIsCameraLoading(false);
+      return;
+    }
     
     // Try back camera first, then front as fallback
     const tryGetStream = async (facingMode: 'environment' | 'user') => {
@@ -837,7 +852,7 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
       };
       
       // Only add focusMode on supported platforms (not iOS Safari)
-      if (!/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      if (!isIOS) {
         (constraints.video as any).focusMode = 'continuous';
       }
       
@@ -857,32 +872,33 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
 
       if (!videoRef.current || !stream) throw new Error('No video element or stream');
       
-      videoRef.current.srcObject = stream;
+      const video = videoRef.current;
+      video.srcObject = stream;
       
-      // Wait for video to be ready with proper event handling
+      // Safari/iOS: wait for video to be ready with proper event handling
       await new Promise<void>((resolve, reject) => {
         if (!videoRef.current) return reject(new Error('No video element'));
         
-        const video = videoRef.current;
+        const vid = videoRef.current;
         
         // Clean up any existing event listeners
         const cleanup = () => {
-          video.onloadedmetadata = null;
-          video.onerror = null;
-          video.onplaying = null;
+          vid.onloadedmetadata = null;
+          vid.onerror = null;
+          vid.onplaying = null;
+          vid.oncanplay = null;
         };
         
-        video.onloadedmetadata = () => {
+        // Safari needs oncanplay for reliable autoplay
+        const handleCanPlay = () => {
           cleanup();
-          // Ensure video plays
-          video.play()
+          vid.play()
             .then(() => {
-              // Wait for first frame
-              if (video.readyState >= 2) {
+              if (vid.readyState >= 2) {
                 resolve();
               } else {
-                video.onplaying = () => {
-                  video.onplaying = null;
+                vid.onplaying = () => {
+                  vid.onplaying = null;
                   resolve();
                 };
               }
@@ -890,7 +906,8 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
             .catch(reject);
         };
         
-        video.onerror = (e) => {
+        vid.oncanplay = handleCanPlay;
+        vid.onerror = (e) => {
           cleanup();
           reject(new Error('Video error: ' + (e as any)?.message || 'Unknown video error'));
         };
@@ -899,7 +916,7 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
         setTimeout(() => {
           cleanup();
           reject(new Error('Video metadata timeout - camera may be busy'));
-        }, 8000);
+        }, 10000);
       });
       
       setIsCameraActive(true);
@@ -912,10 +929,10 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
       } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
         setError('Camera is busy or unavailable. Close other apps using camera and try again.');
       } else if (err.name === 'OverconstrainedError') {
-        setError('Camera doesn\'t support requested resolution. Trying with lower settings...');
-        // Try with minimal constraints
+        setError('Camera doesn\'t support requested resolution. Retrying with minimal constraints...');
+        // Try with minimal constraints but preserve facingMode
         try {
-          const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
           if (videoRef.current) {
             videoRef.current.srcObject = fallbackStream;
             await new Promise<void>((resolve, reject) => {
@@ -1199,7 +1216,7 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
                     webkit-playsinline="true"
                     autoPlay
                     muted
-                    onLoadedMetadata={(e) => {
+                    onCanPlay={(e) => {
                       const target = e.target as HTMLVideoElement;
                       target.play().catch(console.error);
                     }}
@@ -1213,10 +1230,6 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
                     }}
                     onPlaying={() => {
                       // Video started playing
-                    }}
-                    onCanPlay={() => {
-                      const target = e.target as HTMLVideoElement;
-                      target.play().catch(console.error);
                     }}
                   />
                   {/* Corner guides for document alignment */}
