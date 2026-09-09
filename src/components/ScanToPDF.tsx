@@ -265,15 +265,35 @@ export default function ScanToPDF({
     try {
       for (let i = 0; i < files.length; i++) {
         setProcessingStage(`Processing image ${i + 1} of ${files.length}...`);
+        
+        // Validate file type
+        const file = files[i];
+        if (!file.type.startsWith('image/')) {
+          setError(`File ${file.name} is not an image. Skipping...`);
+          continue;
+        }
+        
+        // Validate file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+          setError(`File ${file.name} is too large (max 10MB). Skipping...`);
+          continue;
+        }
+        
         const dataUrl = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(files[i]);
+          reader.onerror = () => reject(new Error('Failed to read file'));
+          reader.readAsDataURL(file);
         });
         
         const processedSrc = await processImage(dataUrl);
         const img = await dataUrlToImage(processedSrc);
+        
+        // Validate image dimensions
+        if (img.width === 0 || img.height === 0) {
+          setError(`Invalid image dimensions for ${file.name}. Skipping...`);
+          continue;
+        }
         
         const newPage: ScannedPage = {
           id: crypto.randomUUID(),
@@ -308,16 +328,46 @@ export default function ScanToPDF({
   const startCamera = async () => {
     setError(null);
     try {
+      // Check if camera is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setError('Camera not supported in this browser. Please use file upload instead.');
+        return;
+      }
+      
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } 
       });
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
       setIsCameraActive(true);
     } catch (e) {
-      setError('Camera access denied. Please use file upload instead.');
+      if (e instanceof DOMException && e.name === 'NotAllowedError') {
+        setError('Camera permission denied. Please allow camera access in browser settings and reload.');
+      } else if (e instanceof DOMException && e.name === 'NotFoundError') {
+        setError('No camera found. Please connect a camera and reload.');
+      } else if (e instanceof DOMException && e.name === 'NotReadableError') {
+        setError('Camera is busy or unavailable. Close other apps using camera and try again.');
+      } else if (e instanceof DOMException && e.name === 'OverconstrainedError') {
+        setError('Camera does not support requested resolution. Trying with lower settings...');
+        // Fallback to basic camera
+        try {
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          if (videoRef.current) {
+            videoRef.current.srcObject = fallbackStream;
+            await videoRef.current.play();
+            setIsCameraActive(true);
+            return;
+          }
+        } catch {
+          setError('Unable to access camera. Please use file upload instead.');
+        }
+        return;
+      } else {
+        setError('Camera error: ' + (e as Error).message + '. Please use file upload instead.');
+      }
       setIsCameraActive(false);
     }
   };
@@ -331,17 +381,37 @@ export default function ScanToPDF({
   };
 
   const capturePhoto = () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current) {
+      setError('Camera not initialized');
+      return;
+    }
+    
     const video = videoRef.current;
+    
+    // Check if video is ready
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      setError('Camera not ready. Please wait for the camera to initialize.');
+      return;
+    }
+    
     const canvas = document.createElement('canvas');
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    canvas.getContext('2d')!.drawImage(video, 0, 0);
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      setError('Failed to create canvas context');
+      return;
+    }
+    
+    ctx.drawImage(video, 0, 0);
     
     canvas.toBlob((blob) => {
       if (blob) {
         const file = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
         addImages([file]);
+      } else {
+        setError('Failed to capture image. Please try again.');
       }
     }, 'image/jpeg', 0.9);
   };
@@ -375,7 +445,7 @@ export default function ScanToPDF({
     setActivePageIndex(to);
   };
 
-  const generatePDF = async () => {
+const generatePDF = async () => {
     if (pages.length === 0) return;
     
     setIsProcessing(true);
@@ -395,16 +465,25 @@ export default function ScanToPDF({
         if (i > 0) pdf.addPage();
         
         const img = await dataUrlToImage(pages[i].processedSrc);
+        
+        // Validate image
+        if (img.width === 0 || img.height === 0) {
+          setError(`Invalid image for page ${i + 1}. Skipping...`);
+          continue;
+        }
+        
         const canvas = document.createElement('canvas');
         canvas.width = img.width;
         canvas.height = img.height;
-        const ctx = canvas.getContext('2d')!;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Failed to get canvas context');
         ctx.drawImage(img, 0, 0);
         applyFilter(ctx, canvas.width, canvas.height, pages[i].filter);
         
         if (pages[i].rotation !== 0) {
           const rotCanvas = document.createElement('canvas');
-          const rotCtx = rotCanvas.getContext('2d')!;
+          const rotCtx = rotCanvas.getContext('2d');
+          if (!rotCtx) throw new Error('Failed to get rotation canvas context');
           const angle = (pages[i].rotation * Math.PI) / 180;
           if (pages[i].rotation === 90 || pages[i].rotation === 270) {
             rotCanvas.width = canvas.height;
@@ -446,6 +525,7 @@ export default function ScanToPDF({
       setError('Failed to generate PDF: ' + (e as Error).message);
     } finally {
       setIsProcessing(false);
+      setProcessingStage('');
     }
   };
 
