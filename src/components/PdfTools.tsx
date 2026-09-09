@@ -11,6 +11,7 @@ import {
 import { PDFDocument, rgb as pdfLibRgb, degrees } from 'pdf-lib';
 import { jsPDF } from 'jspdf';
 import pptxgen from 'pptxgenjs';
+import { usePdfWorker } from '../hooks/usePdfWorker';
 
 // ──────────────────────────────────────────────
 // HELPERS
@@ -204,6 +205,9 @@ export default function PdfTools() {
   const [searchQuery, setSearchQuery]   = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all'|'organize'|'toPdf'|'fromPdf'|'security'|'advanced'>('all');
 
+  // PDF Worker for off-main-thread processing
+  const { process: workerProcess, progress: workerProgress, progressMessage: workerProgressMessage, isProcessing: workerIsProcessing, terminate: terminateWorker } = usePdfWorker();
+
   const fileInputRef          = useRef<HTMLInputElement>(null);
   const secondaryFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -213,6 +217,10 @@ export default function PdfTools() {
   const [processError, setProcessError]     = useState<string | null>(null);
   const [processSuccess, setProcessSuccess] = useState<string | null>(null);
   const [dragOver, setDragOver]             = useState(false);
+
+  // Worker progress state
+  const [workerProgressState, setWorkerProgressState] = useState(0);
+  const [workerProgressMsg, setWorkerProgressMsg] = useState('');
 
   // Watermark
   const [watermarkText,     setWatermarkText]     = useState('CSC SECURE');
@@ -264,8 +272,15 @@ export default function PdfTools() {
       if (processedUrl) URL.revokeObjectURL(processedUrl);
       selectedFiles.forEach(f => f.previewUrl && URL.revokeObjectURL(f.previewUrl));
       stopCamera();
+      terminateWorker();
     };
-  }, [processedUrl]);
+  }, [processedUrl, terminateWorker]);
+
+  // Sync worker progress to local state
+  useEffect(() => {
+    setWorkerProgressState(workerProgress);
+    setWorkerProgressMsg(workerProgressMessage);
+  }, [workerProgress, workerProgressMessage]);
 
   // ── FILE HANDLING ──────────────────────────────
   const processFiles = async (files: File[], append = false) => {
@@ -341,81 +356,65 @@ export default function PdfTools() {
     setProcessedUrl(null);
 
     try {
-      // ---- MERGE ----
+      // ---- MERGE (Worker) ----
       if (activeTool === 'merge') {
         if (selectedFiles.length < 2) throw new Error('Please upload 2 or more PDF files to combine.');
-        const merged = await PDFDocument.create();
-        for (const item of selectedFiles) {
-          const src = await PDFDocument.load(await item.file.arrayBuffer(), { ignoreEncryption: true });
-          const pages = await merged.copyPages(src, src.getPageIndices());
-          pages.forEach(p => merged.addPage(p));
-        }
-        const blob = new Blob([await merged.save()], { type: 'application/pdf' });
-        setProcessedUrl(URL.createObjectURL(blob));
+        const files = await Promise.all(selectedFiles.map(f => f.file.arrayBuffer()));
+        const result = await workerProcess('merge', { files }, {
+          onProgress: (p, msg) => { setWorkerProgressState(p); setWorkerProgressMsg(msg); }
+        });
+        setProcessedUrl(URL.createObjectURL(new Blob([result], { type: 'application/pdf' })));
         setProcessSuccess('✅ Successfully merged all PDFs into one document!');
       }
 
-      // ---- SPLIT ----
+      // ---- SPLIT (Worker) ----
       else if (activeTool === 'split') {
-        const src = await PDFDocument.load(await selectedFiles[0].file.arrayBuffer(), { ignoreEncryption: true });
-        const total = src.getPageCount();
-        const indices: number[] = [];
-        for (const part of splitRange.split(',')) {
-          const t = part.trim();
-          if (t.includes('-')) {
-            const [s, e] = t.split('-').map(Number);
-            if (isNaN(s) || isNaN(e)) throw new Error(`Invalid range "${t}"`);
-            for (let p = Math.max(1,s); p <= Math.min(e,total); p++) indices.push(p - 1);
-          } else {
-            const n = parseInt(t);
-            if (isNaN(n)) throw new Error(`Invalid page "${t}"`);
-            indices.push(Math.min(Math.max(n-1, 0), total-1));
-          }
-        }
-        const out = await PDFDocument.create();
-        (await out.copyPages(src, indices)).forEach(p => out.addPage(p));
-        setProcessedUrl(URL.createObjectURL(new Blob([await out.save()], { type:'application/pdf' })));
+        const file = await selectedFiles[0].file.arrayBuffer();
+        const result = await workerProcess('split', { file, ranges: splitRange }, {
+          onProgress: (p, msg) => { setWorkerProgressState(p); setWorkerProgressMsg(msg); }
+        });
+        setProcessedUrl(URL.createObjectURL(new Blob([result], { type:'application/pdf' })));
         setProcessSuccess(`✅ Extracted pages [${splitRange}] into a new PDF!`);
       }
 
-      // ---- ROTATE ----
+      // ---- ROTATE (Worker) ----
       else if (activeTool === 'rotate') {
-        const src = await PDFDocument.load(await selectedFiles[0].file.arrayBuffer(), { ignoreEncryption: true });
-        src.getPages().forEach(p => p.setRotation(degrees(p.getRotation().angle + rotateAngle)));
-        setProcessedUrl(URL.createObjectURL(new Blob([await src.save()], { type:'application/pdf' })));
+        const file = await selectedFiles[0].file.arrayBuffer();
+        const result = await workerProcess('rotate', { file, angle: rotateAngle }, {
+          onProgress: (p, msg) => { setWorkerProgressState(p); setWorkerProgressMsg(msg); }
+        });
+        setProcessedUrl(URL.createObjectURL(new Blob([result], { type:'application/pdf' })));
         setProcessSuccess(`✅ Rotated all pages by ${rotateAngle}°!`);
       }
 
-      // ---- WATERMARK ----
+      // ---- WATERMARK (Worker) ----
       else if (activeTool === 'watermark') {
-        const src = await PDFDocument.load(await selectedFiles[0].file.arrayBuffer(), { ignoreEncryption: true });
-        const hex = watermarkColor.replace('#','');
-        const r = parseInt(hex.slice(0,2),16)/255, g = parseInt(hex.slice(2,4),16)/255, b = parseInt(hex.slice(4,6),16)/255;
-        src.getPages().forEach(page => {
-          const { width, height } = page.getSize();
-          page.drawText(watermarkText, { x: width/2 - watermarkText.length*watermarkSize*0.25, y: height/2, size: watermarkSize, color: pdfLibRgb(r,g,b), opacity: watermarkOpacity, rotate: degrees(watermarkRotation) });
+        const file = await selectedFiles[0].file.arrayBuffer();
+        const result = await workerProcess('watermark', { 
+          file, 
+          text: watermarkText, 
+          color: watermarkColor, 
+          opacity: watermarkOpacity, 
+          rotation: watermarkRotation, 
+          size: watermarkSize 
+        }, {
+          onProgress: (p, msg) => { setWorkerProgressState(p); setWorkerProgressMsg(msg); }
         });
-        setProcessedUrl(URL.createObjectURL(new Blob([await src.save()], { type:'application/pdf' })));
+        setProcessedUrl(URL.createObjectURL(new Blob([result], { type:'application/pdf' })));
         setProcessSuccess('✅ Watermark stamped across all pages!');
       }
 
-      // ---- PAGE NUMBERS ----
+      // ---- PAGE NUMBERS (Worker) ----
       else if (activeTool === 'pageNumbers') {
-        const src = await PDFDocument.load(await selectedFiles[0].file.arrayBuffer(), { ignoreEncryption: true });
-        const pages = src.getPages(), total = pages.length;
-        pages.forEach((page, idx) => {
-          const { width, height } = page.getSize();
-          const text = pageNumStyle === 'simple' ? `${idx+1}` : `Page ${idx+1} of ${total}`;
-          let px = width/2-20, py = 30;
-          if (pageNumPosition === 'bottom-right') px = width - 80;
-          if (pageNumPosition === 'top-right') { px = width-80; py = height-40; }
-          page.drawText(text, { x: px, y: py, size: 11, color: pdfLibRgb(0.2,0.2,0.2), opacity: 0.8 });
+        const file = await selectedFiles[0].file.arrayBuffer();
+        const result = await workerProcess('pageNumbers', { file, position: pageNumPosition, style: pageNumStyle }, {
+          onProgress: (p, msg) => { setWorkerProgressState(p); setWorkerProgressMsg(msg); }
         });
-        setProcessedUrl(URL.createObjectURL(new Blob([await src.save()], { type:'application/pdf' })));
+        setProcessedUrl(URL.createObjectURL(new Blob([result], { type:'application/pdf' })));
         setProcessSuccess('✅ Page numbers stamped on all pages!');
       }
 
-      // ---- PROTECT ----
+      // ---- PROTECT (Server) ----
       else if (activeTool === 'protect') {
         const b64 = await fileToBase64(selectedFiles[0].file);
         const res = await fetch('/api/pdf-protect', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ pdfBase64: b64, password: protectPassword }) });
@@ -426,7 +425,7 @@ export default function PdfTools() {
         setProcessSuccess('✅ PDF password-protected successfully!');
       }
 
-      // ---- UNLOCK ----
+      // ---- UNLOCK (Server) ----
       else if (activeTool === 'unlock') {
         const b64 = await fileToBase64(selectedFiles[0].file);
         const res = await fetch('/api/pdf-unlock', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ pdfBase64: b64, password: protectPassword }) });
@@ -437,13 +436,14 @@ export default function PdfTools() {
         setProcessSuccess('✅ PDF unlocked and decrypted successfully!');
       }
 
-      // ---- COMPRESS ----
+      // ---- COMPRESS (Worker) ----
       else if (activeTool === 'compress') {
-        const src = await PDFDocument.load(await selectedFiles[0].file.arrayBuffer(), { ignoreEncryption: true });
-        const blob = new Blob([await src.save({ useObjectStreams: true })], { type:'application/pdf' });
-        const mult = compressionLevel === 'high' ? 0.45 : compressionLevel === 'low' ? 0.85 : 0.72;
-        setProcessedUrl(URL.createObjectURL(blob));
-        setProcessSuccess(`✅ Compressed! Estimated size: ~${Math.round(selectedFiles[0].file.size * mult / 1024)} KB`);
+        const file = await selectedFiles[0].file.arrayBuffer();
+        const result = await workerProcess('compress', { file, level: compressionLevel }, {
+          onProgress: (p, msg) => { setWorkerProgressState(p); setWorkerProgressMsg(msg); }
+        });
+        setProcessedUrl(URL.createObjectURL(new Blob([result], { type:'application/pdf' })));
+        setProcessSuccess(`✅ Compressed with ${compressionLevel} level!`);
       }
 
       // ---- JPG TO PDF ----
@@ -580,7 +580,8 @@ export default function PdfTools() {
         if (!res.ok || data.error) throw new Error(data.error || 'Failed to get PDF info.');
 
         // Create a ZIP with placeholder images for each page (since we can't render PDF to images without pdf.js)
-        const zip = new (await import('jszip')).JSZip();
+        const JSZip = (await import('jszip')).default;
+        const zip = new JSZip();
         for (let i = 0; i < data.totalPages; i++) {
           const c = document.createElement('canvas');
           c.width = 800; c.height = 1000;

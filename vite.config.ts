@@ -15,6 +15,7 @@ export default defineConfig(() => {
     build: {
       outDir: 'dist',
       rollupOptions: {
+        external: ['onnxruntime-web/webgpu', 'onnxruntime-web'],
         output: {
           manualChunks(id) {
             if (id.includes('node_modules')) {

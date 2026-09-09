@@ -348,8 +348,25 @@ async function startServer() {
     return "openai/gpt-oss-120b";
   }
 
-  // Helper to call Groq with multi-key & model fallbacks
-  async function callGroqWithFallback(model: string, messages: any[]) {
+  // Helper to check if error is retryable (transient)
+  function isRetryableError(error: any): boolean {
+    if (!error) return false;
+    const message = error?.message || String(error);
+    const status = error?.status || error?.response?.status;
+    // Retry on: 502, 503, 504, 429, network errors, timeout
+    return status === 502 || status === 503 || status === 504 || status === 429 ||
+           message.includes('ECONNRESET') || message.includes('ETIMEDOUT') ||
+           message.includes('timeout') || message.includes('overloaded') ||
+           message.includes('temporarily') || message.includes('Service unavailable');
+  }
+
+  // Helper to sleep with exponential backoff
+  function sleep(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // Helper to call Groq with multi-key & model fallbacks + retry logic
+  async function callGroqWithFallback(model: string, messages: any[], retries = 3) {
     const keys = getGroqApiKeys();
     if (keys.length === 0) {
       throw new Error("GROQ_API_KEY is not configured in environment variables.");
@@ -366,32 +383,48 @@ async function startServer() {
     const uniqueModels = [...new Set(modelsToTry)];
     let lastError = null;
 
-    for (const currentModel of uniqueModels) {
-      for (let i = 0; i < keys.length; i++) {
-        const currentKey = keys[i];
-        try {
-          const groq = new Groq({ apiKey: currentKey });
-          const completion = await groq.chat.completions.create({
-            model: currentModel,
-            messages: messages,
-            temperature: 0.7,
-            max_tokens: 4096,
-          });
-          let reply = completion.choices[0]?.message?.content || "";
-          // Strip reasoning tags if model output think block
-          if (reply.includes("think")) {
-            reply = reply.split("think").pop()?.trim() || reply;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      for (const currentModel of uniqueModels) {
+        for (let i = 0; i < keys.length; i++) {
+          const currentKey = keys[i];
+          try {
+            const groq = new Groq({ apiKey: currentKey });
+            const completion = await groq.chat.completions.create({
+              model: currentModel,
+              messages: messages,
+              temperature: 0.7,
+              max_tokens: 4096,
+            });
+            let reply = completion.choices[0]?.message?.content || "";
+            // Strip reasoning tags if model output think block
+            if (reply.includes("think")) {
+              reply = reply.split("think").pop()?.trim() || reply;
+            }
+            if (reply) {
+              return reply;
+            }
+          } catch (error) {
+            console.log("[Groq Route Info] Attempt " + (attempt + 1) + "/" + (retries + 1) + " model " + currentModel + " with key " + (i + 1) + " error: " + (error?.message || error));
+            lastError = error;
+            
+            // If error is retryable and not last attempt, wait and retry
+            if (attempt < retries && isRetryableError(error)) {
+              const delay = Math.min(1000 * Math.pow(2, attempt) + Math.random() * 1000, 10000);
+              console.log("[Groq Route Info] Retrying in " + delay + "ms...");
+              await sleep(delay);
+              continue;
+            }
           }
-          if (reply) {
-            return reply;
-          }
-        } catch (error) {
-          console.log("[Groq Route Info] model " + currentModel + " with key " + (i + 1) + " error: " + (error?.message || error) + ". Trying fallback...");
-          lastError = error;
         }
       }
+      // If we exhausted all models/keys and error is retryable, wait before next attempt
+      if (attempt < retries && isRetryableError(lastError)) {
+        const delay = Math.min(1000 * Math.pow(2, attempt) + Math.random() * 1000, 10000);
+        console.log("[Groq Route Info] All models failed, retrying in " + delay + "ms...");
+        await sleep(delay);
+      }
     }
-    throw lastError || new Error("Failed to get response from Groq API");
+    throw lastError || new Error("Failed to get response from Groq API after retries");
   }
 
   // Helper to call Groq stream with multi-key & model fallbacks
@@ -465,11 +498,12 @@ async function startServer() {
       const { PDFDocument } = await import("pdf-lib");
       const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
       let text = "";
-      for (const page of doc.getPages()) {
-        const content = page.node.ContentStream;
-        if (content) {
-          text += "\n--- Page " + (doc.getPages().indexOf(page) + 1) + " ---\n";
-          text += content.toString().substring(0, 5000);
+      for (let i = 0; i < doc.getPageCount(); i++) {
+        const page = doc.getPages()[i];
+        const contentStream = page.node.ContentStream as unknown as Uint8Array | undefined;
+        if (contentStream) {
+          text += "\n--- Page " + (i + 1) + " ---\n";
+          text += Buffer.from(contentStream).toString('utf-8').substring(0, 5000);
         }
       }
       if (!text.trim()) {
@@ -492,10 +526,10 @@ async function startServer() {
       let csv = "Page,Text Content\n";
       for (let i = 0; i < doc.getPageCount(); i++) {
         const page = doc.getPages()[i];
-        const content = page.node.ContentStream;
+        const contentStream = page.node.ContentStream as unknown as Uint8Array | undefined;
         let pageText = "No text extracted";
-        if (content) {
-          pageText = content.toString().substring(0, 2000).replace(/[\r\n,]/g, " ");
+        if (contentStream) {
+          pageText = Buffer.from(contentStream).toString('utf-8').substring(0, 2000).replace(/[\r\n,]/g, " ");
         }
         csv += `${i + 1},"${pageText}"\n`;
       }
@@ -520,10 +554,10 @@ async function startServer() {
       let text = "";
       for (let i = 0; i < Math.min(doc.getPageCount(), 5); i++) {
         const page = doc.getPages()[i];
-        const content = page.node.ContentStream;
-        if (content) {
+        const contentStream = page.node.ContentStream as unknown as Uint8Array | undefined;
+        if (contentStream) {
           text += "\n--- Page " + (i + 1) + " ---\n";
-          text += content.toString().substring(0, 3000);
+          text += Buffer.from(contentStream).toString('utf-8').substring(0, 3000);
         }
       }
       if (!text.trim()) {
@@ -534,6 +568,29 @@ async function startServer() {
       res.status(500).json({ error: error?.message || "OCR failed" });
     }
   });
+
+  // Helper to format user-friendly error messages
+  function getFriendlyErrorMessage(error: any): string {
+    const message = error?.message || String(error);
+    const status = error?.status || error?.response?.status;
+    
+    if (status === 502 || status === 503 || status === 504) {
+      return "AI service is temporarily overloaded. Please try again in a few moments.";
+    }
+    if (status === 429) {
+      return "Too many requests. Please wait a moment and try again.";
+    }
+    if (message.includes('overloaded') || message.includes('temporarily') || message.includes('Service unavailable')) {
+      return "AI service is temporarily unavailable. Please try again shortly.";
+    }
+    if (message.includes('timeout') || message.includes('ETIMEDOUT')) {
+      return "Request timed out. Please try again.";
+    }
+    if (message.includes('API key') || message.includes('authentication') || message.includes('unauthorized')) {
+      return "AI service configuration error. Please contact support.";
+    }
+    return "AI processing failed. Please try again.";
+  }
 
   // PDF Summarize - use Groq AI
   app.post("/api/pdf-summarize", async (req, res) => {
@@ -546,8 +603,8 @@ async function startServer() {
       let text = "";
       for (let i = 0; i < Math.min(doc.getPageCount(), 10); i++) {
         const page = doc.getPages()[i];
-        const content = page.node.ContentStream;
-        if (content) text += content.toString().substring(0, 4000);
+        const contentStream = page.node.ContentStream as unknown as Uint8Array | undefined;
+        if (contentStream) text += Buffer.from(contentStream).toString('utf-8').substring(0, 4000);
       }
       if (!text.trim()) {
         return res.json({ summary: "No extractable text found in PDF." });
@@ -559,7 +616,7 @@ async function startServer() {
       ]);
       res.json({ summary: reply });
     } catch (error) {
-      res.status(500).json({ error: error?.message || "Summarization failed" });
+      res.status(500).json({ error: getFriendlyErrorMessage(error) });
     }
   });
 
@@ -574,8 +631,8 @@ async function startServer() {
       let text = "";
       for (let i = 0; i < Math.min(doc.getPageCount(), 8); i++) {
         const page = doc.getPages()[i];
-        const content = page.node.ContentStream;
-        if (content) text += content.toString().substring(0, 4000);
+        const contentStream = page.node.ContentStream as unknown as Uint8Array | undefined;
+        if (contentStream) text += Buffer.from(contentStream).toString('utf-8').substring(0, 4000);
       }
       if (!text.trim()) {
         return res.json({ translation: "No extractable text found in PDF." });
@@ -587,7 +644,7 @@ async function startServer() {
       ]);
       res.json({ translation: reply });
     } catch (error) {
-      res.status(500).json({ error: error?.message || "Translation failed" });
+      res.status(500).json({ error: getFriendlyErrorMessage(error) });
     }
   });
 
@@ -697,7 +754,7 @@ async function startServer() {
       }
     } catch (error: any) {
       console.error("API Chat Error:", error);
-      res.status(500).json({ error: error?.message || "Failed to generate response." });
+      res.status(500).json({ error: getFriendlyErrorMessage(error) });
     }
   });
 
@@ -811,7 +868,7 @@ async function startServer() {
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
     }
-    res.write(`data: ${JSON.stringify({ text: "⚠️ I am currently unable to generate a response. Please verify that your GROQ_API_KEY is configured." })}\n\n`);
+    res.write(`data: ${JSON.stringify({ text: "⚠️ " + getFriendlyErrorMessage(new Error("Groq stream failed")) + " Please try again." })}\n\n`);
     res.write('data: [DONE]\n\n');
     res.end();
   });

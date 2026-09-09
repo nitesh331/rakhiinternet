@@ -5,13 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "npm run build:frontend && npm run build:backend",
+    "build": "npm run lint && npm run build:frontend && npm run build:backend",
     "build:frontend": "vite build",
     "build:backend": "esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=server.cjs",
     "start": "node server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "eslint src/ --ext .ts,.tsx --max-warnings 0"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -48,5 +48,12 @@
     "typescript": "~5.8.2",
     "vite": "^6.2.3",
     "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.10.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "typescript-eslint": "^8.70.0"
   }
 }

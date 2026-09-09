@@ -79,6 +79,7 @@ import PrintService from "./components/PrintService";
 import AdminDashboard from "./components/AdminDashboard";
 import PhotoTools from "./components/PhotoTools";
 import ImageResizer from "./components/ImageResizer";
+import ScanToPDF from "./components/ScanToPDF";
 import LatestLinksModal, { LatestUpdateItem } from "./components/LatestLinksModal";
 // @ts-ignore
 const heroBg = "/images/rakhi_internet_shop_bg.jpg";
@@ -209,7 +210,7 @@ const BRANCH_EXPERTS = [
 // ──────────────────────────────────────────────
 // ABOUT PAGE COMPONENT - Premium Design
 // ──────────────────────────────────────────────
-function AboutPage({ onBack, onChat, onContact }: { onBack: () => void; onChat: () => void; onContact: () => void }) {
+function AboutPage({ onBack, onChat, onContact }: { onBack: () => void; onChat: () => void; onContact: (branch: string) => void }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -692,7 +693,7 @@ function AboutPage({ onBack, onChat, onContact }: { onBack: () => void; onChat: 
                 <MessageSquare className="w-5 h-5 inline mr-2" /> Chat with AI Assistant
               </motion.button>
               <motion.button
-                onClick={onContact}
+                onClick={() => onContact("general")}
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.97 }}
                 className="px-8 py-3 bg-white/10 border-2 border-white text-white font-black rounded-xl hover:bg-white/20 transition-all backdrop-blur-sm"
@@ -720,9 +721,72 @@ function AboutPage({ onBack, onChat, onContact }: { onBack: () => void; onChat: 
 }
 
 // ──────────────────────────────────────────────
+// ERROR BOUNDARY - Prevents white screen crashes
+// ──────────────────────────────────────────────
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode; fallback?: React.ReactNode },
+  ErrorBoundaryState
+> {
+  constructor(props: { children: React.ReactNode; fallback?: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('ErrorBoundary caught:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      if (this.props.fallback) {
+        return this.props.fallback;
+      }
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
+          <div className="text-center max-w-md">
+            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Something went wrong</h2>
+            <p className="text-slate-600 dark:text-slate-400 mb-6">
+              {this.state.error?.message || 'An unexpected error occurred'}
+            </p>
+            <button
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                window.location.reload();
+              }}
+              className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors"
+            >
+              Reload App
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// ──────────────────────────────────────────────
 // PDF MAKER COMPONENT - Production Level
 // ──────────────────────────────────────────────
-function PDFMaker({ onBack }: { onBack: () => void }) {
+function PDFMaker({ 
+  onBack, 
+  isDarkMode, 
+  setIsDarkMode 
+}: { 
+  onBack: () => void; 
+  isDarkMode: boolean; 
+  setIsDarkMode: (v: boolean) => void;
+}) {
   const [scans, setScans] = useState<string[]>([]);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isCameraLoading, setIsCameraLoading] = useState(false);
@@ -735,55 +799,76 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // Enhanced image processing for HD quality - OPTIMIZED
   const enhanceImage = (src: string): Promise<string> => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
-        const canvas = previewCanvasRef.current!;
-        const ctx = canvas.getContext('2d')!;
-        
-        // Calculate optimal dimensions (max 1600px for faster processing)
-        const maxDim = 1600;
-        let { width, height } = img;
-        if (width > maxDim || height > maxDim) {
-          const ratio = Math.min(maxDim / width, maxDim / height);
-          width *= ratio;
-          height *= ratio;
+        try {
+          // Create canvas locally
+          const canvas = document.createElement('canvas');
+          
+          // Calculate optimal dimensions (max 1600px for faster processing)
+          const maxDim = 1600;
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            const ratio = Math.min(maxDim / width, maxDim / height);
+            width *= ratio;
+            height *= ratio;
+          }
+          
+          // Prevent canvas from being too large (browser limits)
+          if (width > 4096 || height > 4096) {
+            const ratio = Math.min(4096 / width, 4096 / height);
+            width *= ratio;
+            height *= ratio;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Failed to get canvas context'));
+            return;
+          }
+          if (!ctx) {
+            reject(new Error('Failed to get canvas context after resize'));
+            return;
+          }
+          
+          // High quality settings
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Fast enhancement: Contrast & brightness only (no expensive unsharp mask)
+          const imageData = ctx.getImageData(0, 0, width, height);
+          const data = imageData.data;
+          
+          // Contrast & brightness boost - vectorized for speed
+          const contrast = 1.2;
+          const brightness = 1.08;
+          const contrastFactor = contrast;
+          const brightnessOffset = (brightness - 1) * 255;
+          
+          for (let i = 0; i < data.length; i += 4) {
+            data[i] = Math.min(255, data[i] * contrastFactor + brightnessOffset);     // R
+            data[i + 1] = Math.min(255, data[i + 1] * contrastFactor + brightnessOffset); // G
+            data[i + 2] = Math.min(255, data[i + 2] * contrastFactor + brightnessOffset); // B
+          }
+          
+          ctx.putImageData(imageData, 0, 0);
+          
+          // Output as JPEG with good quality
+          resolve(canvas.toDataURL('image/jpeg', 0.92));
+        } catch (err) {
+          reject(err);
         }
-        
-        canvas.width = width;
-        canvas.height = height;
-        
-        // High quality settings
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        // Fast enhancement: Contrast & brightness only (no expensive unsharp mask)
-        const imageData = ctx.getImageData(0, 0, width, height);
-        const data = imageData.data;
-        
-        // Contrast & brightness boost - vectorized for speed
-        const contrast = 1.2;
-        const brightness = 1.08;
-        const contrastFactor = contrast;
-        const brightnessOffset = (brightness - 1) * 255;
-        
-        for (let i = 0; i < data.length; i += 4) {
-          data[i] = Math.min(255, data[i] * contrastFactor + brightnessOffset);     // R
-          data[i + 1] = Math.min(255, data[i + 1] * contrastFactor + brightnessOffset); // G
-          data[i + 2] = Math.min(255, data[i + 2] * contrastFactor + brightnessOffset); // B
-        }
-        
-        ctx.putImageData(imageData, 0, 0);
-        
-        // Output as JPEG with good quality
-        resolve(canvas.toDataURL('image/jpeg', 0.92));
       };
+      img.onerror = () => reject(new Error('Failed to load image for enhancement'));
       img.src = src;
     });
   };
@@ -1013,17 +1098,31 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
     setProcessingStage('Capturing image...');
     
     try {
+      // Downscale captured image IMMEDIATELY to max 1600px for faster processing
+      const maxDim = 1600;
+      let { width, height } = { width: video.videoWidth, height: video.videoHeight };
+      if (width > maxDim || height > maxDim) {
+        const ratio = Math.min(maxDim / width, maxDim / height);
+        width *= ratio;
+        height *= ratio;
+      }
+      
       const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(video, 0, 0);
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Failed to get canvas context');
       
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(video, 0, 0, width, height);
       
-      // Process image for HD quality
+      // Use JPEG 0.85 quality - good balance of quality/size
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      
+      // Fast enhancement: contrast/brightness only (no expensive unsharp mask)
       setProcessingStage('Enhancing image quality...');
-      const enhanced = await autoCrop(dataUrl);
+      const enhanced = await enhanceImage(dataUrl);
       
       setScans(prev => [...prev, enhanced]);
       setProcessingStage('');
@@ -1047,11 +1146,11 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
     setScans(newScans);
   };
 
-  const generatePDF = async () => {
+const generatePDF = async () => {
     if (scans.length === 0) return;
     
     setIsProcessing(true);
-    setProcessingStage('Generating PDF...');
+    setProcessingStage('Preparing images...');
     
     try {
       const { jsPDF } = await import('jspdf');
@@ -1063,26 +1162,25 @@ function PDFMaker({ onBack }: { onBack: () => void }) {
       const maxWidth = pageWidth - margin * 2;
       const maxHeight = pageHeight - margin * 2;
       
-      // Pre-load all images in parallel for speed
-      const images = await Promise.all(scans.map(src => {
-        const img = new Image();
-        img.src = src;
-return new Promise<HTMLImageElement>((resolve, reject) => {
-            img.onload = () => resolve(img);
-            img.onerror = reject;
-          });
+      // Pre-load all images in parallel with timeout
+      const images = await Promise.all(
+        scans.map((src, idx) => {
+          return Promise.race([
+            new Promise<HTMLImageElement>((resolve, reject) => {
+              const img = new Image();
+              img.onload = () => resolve(img);
+              img.onerror = () => reject(new Error(`Failed to load image ${idx + 1}`));
+              img.src = src;
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error(`Timeout loading image ${idx + 1}`)), 10000))
+          ]);
         })
       );
       
-      for (let i = 0; i < scans.length; i++) {
-        if (i > 0) pdf.addPage();
-        
-        const img = images[i];
-        
-        // Calculate fit
+      // Calculate layout for all pages upfront
+      const layouts = images.map(img => {
         const imgRatio = img.width / img.height;
         const pageRatio = maxWidth / maxHeight;
-        
         let drawWidth, drawHeight;
         if (imgRatio > pageRatio) {
           drawWidth = maxWidth;
@@ -1091,17 +1189,31 @@ return new Promise<HTMLImageElement>((resolve, reject) => {
           drawHeight = maxHeight;
           drawWidth = maxHeight * imgRatio;
         }
-        
         const x = (pageWidth - drawWidth) / 2;
         const y = (pageHeight - drawHeight) / 2;
+        return { drawWidth, drawHeight, x, y };
+      });
+      
+      // Add pages and images with progress updates
+      for (let i = 0; i < scans.length; i++) {
+        setProcessingStage(`Adding page ${i + 1} of ${scans.length}...`);
         
-        // Use MEDIUM quality JPEG (0.7) for much faster generation and smaller files
-        pdf.addImage(scans[i], 'JPEG', x, y, drawWidth, drawHeight, undefined, 'MEDIUM');
+        if (i > 0) pdf.addPage();
+        
+        const layout = layouts[i];
+        
+        // Use JPEG quality 0.7 (FAST, smaller files) - much faster than MEDIUM
+        pdf.addImage(scans[i], 'JPEG', layout.x, layout.y, layout.drawWidth, layout.drawHeight, undefined, 'FAST');
+        
+        // Yield to main thread every page for responsiveness
+        if (i % 2 === 0) await new Promise(r => setTimeout(r, 0));
       }
       
+      setProcessingStage('Finalizing PDF...');
       const blob = pdf.output('blob');
       setPdfBlob(blob);
       setShowPreview(true);
+      setProcessingStage('');
     } catch (err) {
       console.error(err);
       setError('Failed to generate PDF. Please try again.');
@@ -1608,6 +1720,7 @@ export default function App() {
     | "admin"
     | "about"
     | "pdf-maker"
+    | "scan-to-pdf"
   >("home");
   const [courierPortalTab, setCourierPortalTab] = useState<
     "track" | "calculator"
@@ -1806,7 +1919,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fafafa] font-sans text-gray-900 selection:bg-blue-100">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-[#fafafa] font-sans text-gray-900 selection:bg-blue-100">
       {/* 1. Navigation Bar */}
       {currentView !== "chat-portal" && currentView !== "about" && (
         <nav
@@ -1899,13 +2013,13 @@ export default function App() {
                     </button>
                     <button
                       onClick={() => {
-                        setCurrentView("pdf-maker");
+                        setCurrentView("scan-to-pdf");
                         window.scrollTo(0, 0);
                         setServicesOpen(false);
                       }}
                       className="text-left px-4 py-2.5 text-xs text-gray-700 transition-all duration-300 hover:bg-indigo-50/80 hover:text-indigo-700 hover:scale-105 hover:translate-x-2 hover:-rotate-1 hover:shadow-md hover:z-10 relative flex items-center gap-2 rounded-lg mx-1"
                     >
-                      <FileText className="w-3.5 h-3.5" /> PDF Maker (Scan to PDF)
+                      <FileText className="w-3.5 h-3.5" /> Scan to PDF
                     </button>
                     <button
                         onClick={() => {
@@ -2244,10 +2358,10 @@ export default function App() {
                             </div>
                           </button>
 
-                          {/* PDF Maker (Scan to PDF) */}
+                          {/* Scan to PDF */}
                           <button
                             onClick={() => {
-                              setCurrentView("pdf-maker");
+                              setCurrentView("scan-to-pdf");
                               setMobileMenuOpen(false);
                               window.scrollTo(0, 0);
                             }}
@@ -2261,7 +2375,7 @@ export default function App() {
                                 AI Tools
                               </span>
                               <span className="text-xs font-black text-slate-700">
-                                PDF Maker (Scan to PDF)
+                                Scan to PDF
                               </span>
                             </div>
                           </button>
@@ -2563,6 +2677,15 @@ export default function App() {
         />
       ) : currentView === "pdf-maker" ? (
         <PDFMaker
+          onBack={() => {
+            setCurrentView("home");
+            window.scrollTo(0, 0);
+          }}
+          isDarkMode={isDarkMode}
+          setIsDarkMode={setIsDarkMode}
+        />
+      ) : currentView === "scan-to-pdf" ? (
+        <ScanToPDF
           onBack={() => {
             setCurrentView("home");
             window.scrollTo(0, 0);
@@ -4349,5 +4472,6 @@ export default function App() {
         isLoading={isLoadingJobs}
       />
     </div>
+  </ErrorBoundary>
   );
 }
