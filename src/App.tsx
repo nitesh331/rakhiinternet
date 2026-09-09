@@ -12,6 +12,7 @@ const ashishImage = "/images/Ashish.png";
 
 const pankajImage = "/images/pankaj.png";
 import React, { useState, useEffect, useRef } from "react";
+import { useTheme } from "./context/ThemeContext";
 import {
   Moon,
   Sun,
@@ -1296,7 +1297,7 @@ const generatePDF = async () => {
             </div>
             {/* Dark Mode Toggle */}
             <motion.button
-              onClick={() => setIsDarkMode(!isDarkMode)}
+              onClick={toggleDarkMode}
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
               className={`p-2 rounded-full transition-colors ${isDarkMode ? "text-yellow-500 hover:bg-yellow-100 dark:hover:bg-yellow-900/30" : "text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"}`}
@@ -1727,9 +1728,10 @@ export default function App() {
   >("track");
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isSliderHovered, setIsSliderHovered] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [showAiTooltip, setShowAiTooltip] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
+  
+  const { isDarkMode, setDarkMode: setIsDarkMode, toggleDarkMode } = useTheme();
 
   useEffect(() => {
     setVideoFailed(false);
@@ -1851,14 +1853,6 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, [isDarkMode]);
-
-  useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 20);
     };
@@ -1919,8 +1913,9 @@ export default function App() {
   };
 
   return (
-    <ErrorBoundary>
-      <div className="min-h-screen bg-[#fafafa] font-sans text-gray-900 selection:bg-blue-100">
+    <ThemeProvider>
+      <ErrorBoundary>
+        <div className="min-h-screen bg-[#fafafa] font-sans text-gray-900 selection:bg-blue-100">
       {/* 1. Navigation Bar */}
       {currentView !== "chat-portal" && currentView !== "about" && (
         <nav
@@ -1972,7 +1967,7 @@ export default function App() {
               {/* Desktop Nav & Contact */}
               <div className="hidden md:flex items-center gap-8">
                 <button
-                  onClick={() => setIsDarkMode(!isDarkMode)}
+                  onClick={toggleDarkMode}
                   className={`p-2 rounded-full transition-colors ${scrolled ? "text-gray-600 hover:bg-gray-100" : "text-gray-200 hover:bg-white/10"}`}
                   aria-label="Toggle Dark Mode"
                 >
@@ -2197,7 +2192,7 @@ export default function App() {
               {/* Mobile Nav Toggle */}
               <div className="md:hidden flex items-center gap-2">
                 <button
-                  onClick={() => setIsDarkMode(!isDarkMode)}
+                  onClick={toggleDarkMode}
                   className={`p-2 rounded-xl transition-all cursor-pointer ${scrolled || mobileMenuOpen ? "text-slate-600 hover:bg-slate-100" : "text-gray-200 hover:bg-white/10"}`}
                   aria-label="Toggle Dark Mode"
                 >
@@ -2681,8 +2676,6 @@ export default function App() {
             setCurrentView("home");
             window.scrollTo(0, 0);
           }}
-          isDarkMode={isDarkMode}
-          setIsDarkMode={setIsDarkMode}
         />
       ) : currentView === "scan-to-pdf" ? (
         <ScanToPDF
@@ -2690,8 +2683,6 @@ export default function App() {
             setCurrentView("home");
             window.scrollTo(0, 0);
           }}
-          isDarkMode={isDarkMode}
-          setIsDarkMode={setIsDarkMode}
         />
       ) : currentView === "about" ? (
         <AboutPage
@@ -4475,5 +4466,6 @@ export default function App() {
       />
     </div>
   </ErrorBoundary>
+  </ThemeProvider>
   );
 }
