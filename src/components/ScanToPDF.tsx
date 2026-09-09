@@ -194,7 +194,15 @@ async function detectAndCorrectPerspective(cv: any, src: HTMLImageElement): Prom
     }
   }
 
-export default function ScanToPDF({ onBack }: { onBack: () => void }) {
+export default function ScanToPDF({ 
+  onBack, 
+  isDarkMode = false, 
+  setIsDarkMode = () => {} 
+}: { 
+  onBack: () => void; 
+  isDarkMode?: boolean; 
+  setIsDarkMode?: (v: boolean) => void;
+}) {
   const [pages, setPages] = useState<ScannedPage[]>([]);
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [isCameraActive, setIsCameraActive] = useState(false);
