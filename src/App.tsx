@@ -2690,6 +2690,8 @@ export default function App() {
             setCurrentView("home");
             window.scrollTo(0, 0);
           }}
+          isDarkMode={isDarkMode}
+          setIsDarkMode={setIsDarkMode}
         />
       ) : currentView === "about" ? (
         <AboutPage
